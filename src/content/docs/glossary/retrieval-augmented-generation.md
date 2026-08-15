@@ -35,4 +35,4 @@ RAG is useful when answers depend on private, current, attributable, or frequent
 
 The distinction matters during debugging. A generation prompt cannot repair missing or stale indexed content.
 
-Continue with the full [RAG, end to end](/rag/) chapter.
+Continue with the full [RAG, end to end](../../rag/) chapter.

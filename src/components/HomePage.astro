@@ -1,4 +1,7 @@
 ---
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+const withBase = (path: string) => `${basePath}${path}`;
+
 const shelves = [
 	{
 		number: '01',
@@ -40,8 +43,8 @@ const shelves = [
 			forward-deployed engineer.
 		</p>
 		<div class="home-actions">
-			<a class="primary-action" href="/start-here/">Start reading <span aria-hidden="true">→</span></a>
-			<a class="text-action" href="/glossary/">Open the glossary</a>
+			<a class="primary-action" href={withBase('/start-here/')}>Start reading <span aria-hidden="true">→</span></a>
+			<a class="text-action" href={withBase('/glossary/')}>Open the glossary</a>
 		</div>
 	</section>
 
@@ -52,7 +55,7 @@ const shelves = [
 		</div>
 		<div class="book-grid">
 			{shelves.map((shelf) => (
-				<a class="book-entry" href={shelf.href}>
+				<a class="book-entry" href={withBase(shelf.href)}>
 					<span class="book-number">{shelf.number}</span>
 					<h3>{shelf.title}</h3>
 					<p>{shelf.description}</p>
@@ -73,7 +76,7 @@ const shelves = [
 				improve. Each chapter therefore connects the idea to a customer question, a failure mode,
 				and a measurable check.
 			</p>
-			<a class="text-action" href="/field-guide/production-rag-checklist/">Use the production checklist →</a>
+			<a class="text-action" href={withBase('/field-guide/production-rag-checklist/')}>Use the production checklist →</a>
 		</div>
 	</section>
 
@@ -83,9 +86,9 @@ const shelves = [
 			<h2 id="desk-title">Look something up</h2>
 		</div>
 		<nav class="quick-index" aria-label="Reference pages">
-			<a href="/glossary/"><span>Terms in plain English</span><strong>Glossary</strong></a>
-			<a href="/interview/"><span>Explain your reasoning</span><strong>Interview room</strong></a>
-			<a href="/evals/"><span>Know if it works</span><strong>Evaluation guide</strong></a>
+			<a href={withBase('/glossary/')}><span>Terms in plain English</span><strong>Glossary</strong></a>
+			<a href={withBase('/interview/')}><span>Explain your reasoning</span><strong>Interview room</strong></a>
+			<a href={withBase('/evals/')}><span>Know if it works</span><strong>Evaluation guide</strong></a>
 		</nav>
 	</section>
 </main>

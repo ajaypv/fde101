@@ -3,11 +3,19 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 
-const site = process.env.SITE_URL ?? 'https://fde101.example';
+const [githubOwner, githubRepository] = (process.env.GITHUB_REPOSITORY ?? '').split('/');
+const isGitHubPages = process.env.GITHUB_ACTIONS === 'true' && githubOwner && githubRepository;
+const configuredBase = process.env.BASE_PATH ?? (isGitHubPages ? `/${githubRepository}` : '');
+const base = configuredBase ? `/${configuredBase.replace(/^\/+|\/+$/g, '')}` : undefined;
+const basePath = base ?? '';
+const site =
+	process.env.SITE_URL ??
+	(isGitHubPages ? `https://${githubOwner}.github.io` : 'https://fde101.example');
 
 // https://astro.build/config
 export default defineConfig({
 	site,
+	base,
 	integrations: [
 		starlight({
 			title: 'FDE 101',
@@ -19,7 +27,7 @@ export default defineConfig({
 			tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 3 },
 			head: [
 				{ tag: 'meta', attrs: { name: 'theme-color', content: '#f7f3e9' } },
-				{ tag: 'link', attrs: { rel: 'sitemap', href: '/sitemap-index.xml' } },
+				{ tag: 'link', attrs: { rel: 'sitemap', href: `${basePath}/sitemap-index.xml` } },
 			],
 			sidebar: [
 				{

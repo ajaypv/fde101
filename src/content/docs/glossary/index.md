@@ -24,7 +24,7 @@ The maximum token budget a model can consider in one call, including instruction
 ## E–L
 
 **Embedding**  
-A numeric representation used to compare semantic similarity. [Read the full entry.](/glossary/embedding/)
+A numeric representation used to compare semantic similarity. [Read the full entry.](./embedding/)
 
 **Evaluation, or eval**  
 A repeatable case, expected behavior, scoring method, and decision rule used to measure a system.
@@ -33,7 +33,7 @@ A repeatable case, expected behavior, scoring method, and decision rule used to 
 The degree to which an answer’s claims are supported by the evidence made available to the model.
 
 **Hallucination**  
-A generated claim that is not supported by available evidence. [Read the full entry.](/glossary/hallucination/)
+A generated claim that is not supported by available evidence. [Read the full entry.](./hallucination/)
 
 **LLM**  
 A large language model that generates tokens from the context supplied to it.
@@ -47,7 +47,7 @@ Relevant items in the top `k` results divided by the number of returned items co
 Relevant items found in the top `k` results divided by all known relevant items.
 
 **RAG**  
-Retrieval-augmented generation: retrieve external evidence, place it in model context, then generate a grounded answer. [Read the full entry.](/glossary/retrieval-augmented-generation/)
+Retrieval-augmented generation: retrieve external evidence, place it in model context, then generate a grounded answer. [Read the full entry.](./retrieval-augmented-generation/)
 
 **Reranker**  
 A second scoring stage that reorders candidate results, often using a more expensive but more precise model.

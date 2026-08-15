@@ -19,7 +19,7 @@ Good answers reveal how you reason. Define the term, give a tiny example, name a
 4. How do you enforce document permissions during retrieval?
 5. Why can adding more chunks make an answer worse?
 
-Read: [How would you debug a bad RAG answer?](/interview/rag-debugging/)
+Read: [How would you debug a bad RAG answer?](./rag-debugging/)
 
 ## LangChain and LangGraph
 
@@ -29,7 +29,7 @@ Read: [How would you debug a bad RAG answer?](/interview/rag-debugging/)
 4. Where would you place human approval in a graph?
 5. How do you retry a tool node without duplicating a side effect?
 
-Read: [State versus memory](/interview/langgraph-state-vs-memory/)
+Read: [State versus memory](./langgraph-state-vs-memory/)
 
 ## Evaluation
 

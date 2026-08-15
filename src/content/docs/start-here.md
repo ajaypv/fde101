@@ -16,11 +16,11 @@ This is a reference book, not a course you must finish in order. Start with a cu
 
 | If you need to… | Read this first | Then read |
 | --- | --- | --- |
-| Understand the vocabulary | [LLM foundations](/foundations/llms/) | [Glossary](/glossary/) |
-| Build a grounded assistant | [RAG, end to end](/rag/) | [Chunking](/rag/chunking/) |
-| Build a stateful workflow | [LangGraph](/langgraph/) | [State vs memory](/interview/langgraph-state-vs-memory/) |
-| Prove a system works | [Evaluation](/evals/) | [Production checklist](/field-guide/production-rag-checklist/) |
-| Prepare for an interview | [Interview room](/interview/) | [RAG debugging](/interview/rag-debugging/) |
+| Understand the vocabulary | [LLM foundations](../foundations/llms/) | [Glossary](../glossary/) |
+| Build a grounded assistant | [RAG, end to end](../rag/) | [Chunking](../rag/chunking/) |
+| Build a stateful workflow | [LangGraph](../langgraph/) | [State vs memory](../interview/langgraph-state-vs-memory/) |
+| Prove a system works | [Evaluation](../evals/) | [Production checklist](../field-guide/production-rag-checklist/) |
+| Prepare for an interview | [Interview room](../interview/) | [RAG debugging](../interview/rag-debugging/) |
 
 ## How each chapter works
 
@@ -35,4 +35,4 @@ Every lesson uses the same reading rhythm:
 
 ## A sensible first week
 
-Read [LLM foundations](/foundations/llms/), [RAG](/rag/), and [evaluation](/evals/). Then run the three examples in `src/examples`. That gives you enough vocabulary to discuss a real use case without pretending the hard production questions are already solved.
+Read [LLM foundations](../foundations/llms/), [RAG](../rag/), and [evaluation](../evals/). Then run the three examples in `src/examples`. That gives you enough vocabulary to discuss a real use case without pretending the hard production questions are already solved.
