@@ -1,0 +1,128 @@
+---
+title: Accuracy, F1, micro-F1, and macro-F1
+description: Read a confusion matrix, calculate classification metrics with explicit denominators, and choose an average that does not hide the class you care about.
+contentType: lesson
+level: Beginner
+minutes: 15
+topics: [classification, accuracy, precision, recall, F1]
+lastVerified: 2026-08-15
+sidebar:
+  order: 2
+sources:
+  - title: Metrics and scoring — classification metrics
+    url: https://scikit-learn.org/stable/modules/model_evaluation.html#classification-metrics
+    publisher: scikit-learn
+    type: official-doc
+  - title: f1_score
+    url: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
+    publisher: scikit-learn
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import classificationCode from '../../../examples/evals/classification_metrics.py?raw';
+
+<LessonMeta level="Beginner" minutes={15} verified="15 Aug 2026" />
+
+<Takeaway>Accuracy counts correct rows. F1 balances precision and recall. Micro, macro, and weighted describe how per-class evidence is combined.</Takeaway>
+
+Imagine a model routes eight bank transactions to `normal`, `fraud`, or `review`. Five predictions are correct.
+
+## 1. Begin with the confusion matrix
+
+Rows are truth. Columns are predictions.
+
+| Actual ↓ / Predicted → | normal | fraud | review | Support |
+|---|---:|---:|---:|---:|
+| normal | 3 | 1 | 0 | 4 |
+| fraud | 1 | 1 | 0 | 2 |
+| review | 1 | 0 | 1 | 2 |
+
+The diagonal contains the five correct predictions. Every off-diagonal cell is a particular mistake that a product owner can name.
+
+## 2. Accuracy asks one broad question
+
+```text
+accuracy = correct predictions / all predictions
+         = 5 / 8
+         = 0.625
+```
+
+Accuracy is easy to explain. It becomes misleading when one common class dominates. A system can label every rare fraud case `normal` and still look accurate in a mostly normal dataset.
+
+## 3. Precision and recall choose one class
+
+Treat `fraud` as positive and everything else as negative.
+
+| Count | Meaning | Here |
+|---|---|---:|
+| TP | Fraud correctly predicted as fraud | 1 |
+| FP | Non-fraud incorrectly predicted as fraud | 1 |
+| FN | Fraud incorrectly predicted as something else | 1 |
+
+```text
+fraud precision = TP / (TP + FP) = 1 / 2 = 0.50
+fraud recall    = TP / (TP + FN) = 1 / 2 = 0.50
+```
+
+Precision asks, “When the system said fraud, how often was it right?” Recall asks, “Of the fraud cases that existed, how many did it find?” The denominator is the difference.
+
+## 4. F1 requires both
+
+```text
+F1 = 2 × precision × recall / (precision + recall)
+   = 2TP / (2TP + FP + FN)
+```
+
+For fraud, F1 is `0.50`. A high precision cannot fully hide low recall, and high recall cannot fully hide low precision. F1 still does **not** include true negatives, probability calibration, or the different business cost of each error.
+
+## 5. Micro, macro, and weighted answer different questions
+
+First calculate F1 for each class by treating that class as positive.
+
+| Class | Precision | Recall | F1 | Support |
+|---|---:|---:|---:|---:|
+| normal | 0.60 | 0.75 | 0.667 | 4 |
+| fraud | 0.50 | 0.50 | 0.500 | 2 |
+| review | 1.00 | 0.50 | 0.667 | 2 |
+
+| Average | Calculation | Result | What it emphasizes |
+|---|---|---:|---|
+| Micro-F1 | Add every class's TP, FP, and FN, then calculate one F1 | 0.625 | Every sample-class decision |
+| Macro-F1 | `(0.667 + 0.500 + 0.667) / 3` | 0.611 | Every class equally |
+| Weighted-F1 | Weight each class F1 by support: `(4×.667 + 2×.500 + 2×.667) / 8` | 0.625 | Common classes more heavily |
+
+For a **single-label multiclass** problem that includes every class, micro-precision, micro-recall, micro-F1, and accuracy are equal. This shortcut does not generally hold for multilabel classification, excluded labels, or unusual weighting.
+
+## Which score should I report?
+
+| Situation | Start with | Also inspect |
+|---|---|---|
+| Balanced classes and similar error costs | Accuracy | Per-class precision, recall, and confusion matrix |
+| Rare classes matter | Macro-F1 | Rare-class recall and false-negative cases |
+| Dataset frequency should affect the summary | Weighted-F1 | Macro-F1 so minority failure is not hidden |
+| Missing positives is expensive | Recall for the important class | Precision, threshold curve, and cost of false positives |
+| False alarms are expensive | Precision for the important class | Recall and the cases rejected incorrectly |
+| One item may have several labels | Micro/macro/sample averages | Exact-match or subset accuracy |
+
+No average decides the product trade-off for you. In loan, fraud, medical, or safety workflows, report the important class separately and evaluate the human-review route too.
+
+## Run the numbers
+
+<Code code={classificationCode} lang="python" title="src/examples/evals/classification_metrics.py" />
+
+In scikit-learn, use `classification_report` for the table and `f1_score(y_true, y_pred, average="micro" | "macro" | "weighted")` for a chosen average.[^sklearn]
+
+## A final memory aid
+
+1. **Accuracy:** How many rows were right?
+2. **Precision:** When I predicted this class, how often was I right?
+3. **Recall:** Of this class in reality, how much did I find?
+4. **F1:** Did precision and recall remain strong together?
+5. **Micro:** Pool decisions first.
+6. **Macro:** Score classes first, then give each one equal weight.
+7. **Weighted:** Score classes first, then weight by how often each occurs.
+
+[^sklearn]: scikit-learn, [`f1_score`](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html) and [classification metrics](https://scikit-learn.org/stable/modules/model_evaluation.html#classification-metrics).

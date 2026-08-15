@@ -19,6 +19,7 @@ This is the alphabetical reference behind the front-page field index. Each note 
 - [Agent Card](./agent-card/) — A2A metadata for an agent's interfaces, skills, capabilities, and authentication requirements.
 - [Agent conflict](./agent-conflict/) — disagreement between specialist findings with different roles or evidence.
 - [Agentic RAG](./agentic-rag/) — retrieval whose path can change from model decisions and observations.
+- [Accuracy](../evals/classification-metrics/#2-accuracy-asks-one-broad-question) — the correct share of all classification predictions.
 - [Answer correctness](./answer-correctness/) — whether a response agrees with trusted truth or a reviewed reference.
 - [Answer relevance](./answer-relevance/) — whether a response directly addresses the user's question.
 - [BM25](./bm25/) — lexical ranking based on term frequency, rarity, and document length.
@@ -32,6 +33,7 @@ This is the alphabetical reference behind the front-page field index. Each note 
 - [Faithfulness](./faithfulness/) — whether answer claims are supported by retrieved context.
 - [Fine-tuning](./fine-tuning/) — updating model weights to improve a defined, repeated behavior.
 - [Feature engineering](./feature-engineering/) — turning raw observations into useful model inputs without leaking future data.
+- [F1 score](../evals/classification-metrics/#4-f1-requires-both) — a harmonic mean that balances precision and recall for one class.
 
 ## G–R
 
@@ -45,6 +47,8 @@ This is the alphabetical reference behind the front-page field index. Each note 
 - [Maximal marginal relevance (MMR)](./mmr/) — balancing relevance with diversity during result selection.
 - [Mean reciprocal rank (MRR)](./mrr/) — the average reciprocal position of the first relevant result.
 - [Memory](./memory/) — application-managed information retained and supplied across calls or threads.
+- [Micro-F1](../evals/classification-metrics/#5-micro-macro-and-weighted-answer-different-questions) — F1 after pooling decisions across classes.
+- [Macro-F1](../evals/classification-metrics/#5-micro-macro-and-weighted-answer-different-questions) — the equal-weight mean of per-class F1 scores.
 - [Message roles](./message-roles/) — labels separating instructions, user input, model output, and tool results.
 - [Model Context Protocol (MCP)](./model-context-protocol/) — a protocol for connecting AI applications to external capabilities.
 - [Precision@k](./precision-at-k/) — the relevant share of the first `k` retrieved results.
@@ -68,5 +72,6 @@ This is the alphabetical reference behind the front-page field index. Each note 
 - [TPM and RPM](./rate-limits/) — token-per-minute and request-per-minute provider limits.
 - [Tool calling](./tool-calling/) — a structured model request for application code to invoke a capability.
 - [Vector store](./vector-store/) — storage and nearest-neighbor retrieval for embeddings and metadata.
+- [Weighted-F1](../evals/classification-metrics/#5-micro-macro-and-weighted-answer-different-questions) — the support-weighted mean of per-class F1 scores.
 
 For longer treatments, continue to [production retrieval](../rag/production-retrieval/), [agent systems](../agents/), [the applied AI roadmap](../foundations/applied-ai-roadmap/), or [evaluations](../evals/).

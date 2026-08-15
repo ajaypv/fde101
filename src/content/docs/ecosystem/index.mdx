@@ -1,0 +1,130 @@
+---
+title: The AI library map
+description: Choose an agent framework, evaluation harness, prompt platform, or observability tool by the job it must do.
+contentType: lesson
+level: Beginner
+minutes: 16
+topics: [frameworks, evaluation, prompting, observability, CrewAI]
+lastVerified: 2026-08-15
+sidebar:
+  order: 1
+sources:
+  - title: CrewAI documentation
+    url: https://docs.crewai.com/
+    publisher: CrewAI
+    type: official-doc
+  - title: AutoGen documentation
+    url: https://microsoft.github.io/autogen/stable/index.html
+    publisher: Microsoft
+    type: official-doc
+  - title: Building an agent
+    url: https://developers.llamaindex.ai/python/framework/understanding/agent/
+    publisher: LlamaIndex
+    type: official-doc
+  - title: Ragas metrics
+    url: https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/
+    publisher: Ragas
+    type: official-doc
+  - title: DeepEval introduction
+    url: https://deepeval.com/docs/introduction
+    publisher: Confident AI
+    type: official-doc
+  - title: Promptfoo getting started
+    url: https://www.promptfoo.dev/docs/getting-started/
+    publisher: Promptfoo
+    type: official-doc
+  - title: Langfuse overview
+    url: https://langfuse.com/docs
+    publisher: Langfuse
+    type: official-doc
+  - title: Arize Phoenix documentation
+    url: https://arize.com/docs/phoenix
+    publisher: Arize AI
+    type: official-doc
+---
+
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+
+<LessonMeta level="Beginner" minutes={16} verified="15 Aug 2026" />
+
+<Takeaway>A library is useful when it removes work you actually have. First name the job; then choose the smallest tool that performs it.</Takeaway>
+
+Someone says, “We use CrewAI.” That tells us less than it first appears. It does not tell us whether the application has safe permissions, useful evaluations, recoverable state, or a reliable release process. It tells us which vocabulary and runtime the team chose for part of the system.
+
+The name you heard as **“Crevo AI” is most likely CrewAI**. CrewAI organizes work around agents, tasks, crews, and flows. A crew is a group of role-based agents. A flow is the surrounding event-driven process that carries state and chooses routes.[^crewai]
+
+## Remember four shelves
+
+| Shelf | Question it answers | Examples |
+|---|---|---|
+| Application framework | How do model calls, tools, retrieval, and state fit together? | LangChain, LangGraph, LlamaIndex |
+| Agent framework | How do one or more agents receive work and coordinate? | CrewAI, AutoGen, Semantic Kernel |
+| Evaluation harness | Did this version pass the same cases as the last version? | Ragas, DeepEval, Promptfoo |
+| Prompt and observability platform | Which prompt ran, what happened, and where did it fail? | LangSmith, Langfuse, Phoenix |
+
+One product may sit on two shelves. That is normal. The categories describe the **job you are buying it for**, not the logo on its homepage.
+
+## 1. Frameworks: choose the control model
+
+| Framework | Reach for it when… | Mental model | Official documentation |
+|---|---|---|---|
+| LangChain | You want common interfaces for models, messages, tools, retrievers, and runnable composition | Components and runnables | [LangChain docs](https://docs.langchain.com/oss/python/langchain/overview) |
+| LangGraph | The workflow branches, pauses, resumes, retries, or persists state | A state graph | [LangGraph docs](https://docs.langchain.com/oss/python/langgraph/overview) |
+| CrewAI | Role-based agents and task delegation are central to the design | Agents + tasks + crews, surrounded by flows | [CrewAI docs](https://docs.crewai.com/) |
+| LlamaIndex | Data ingestion, indexes, retrieval, query engines, and data-backed agents are central | Data framework with agent workflows | [LlamaIndex agent docs](https://developers.llamaindex.ai/python/framework/understanding/agent/) |
+| AutoGen | You are exploring conversational single-agent or multi-agent patterns and event-driven runtimes | AgentChat over an event-driven core | [AutoGen docs](https://microsoft.github.io/autogen/stable/index.html) |
+| Semantic Kernel | A .NET, Python, or Java application needs model connectors, plugins, and agent orchestration | An application SDK with agent abstractions | [Semantic Kernel agents](https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/) |
+| DSPy | You want to optimize a model program against examples and a metric instead of hand-editing prompt strings | Signatures, modules, optimizers | [DSPy docs](https://dspy.ai/) |
+
+### A real choice
+
+A support-ticket classifier has one model call and a strict JSON schema. Plain provider SDK code may be enough. A claims workflow that retrieves policy, calls two services, waits for an adjuster, and resumes tomorrow benefits from explicit state and persistence. The second problem can justify LangGraph; the first may not justify any orchestration framework.
+
+## 2. Evaluation: choose the failure you need to catch
+
+| Tool | Best first use | What it does not replace | Official documentation |
+|---|---|---|---|
+| Ragas | RAG and agent metrics such as context recall, faithfulness, response relevance, and tool-call accuracy | Your labeled retrieval judgments and business rules | [Ragas metrics](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/) |
+| DeepEval | Python/pytest-style tests for outputs, RAG, agents, tools, conversations, and traced components | Calibrating model judges against humans | [DeepEval docs](https://deepeval.com/docs/introduction) |
+| Promptfoo | Configuration-driven prompt/model comparisons, assertions, regression tests, and red-team cases | Production traces and application authorization tests | [Promptfoo docs](https://www.promptfoo.dev/docs/getting-started/) |
+| LangSmith | Datasets, experiments, evaluators, human review, and traces around LangChain or other applications | Deterministic application policy | [LangSmith evaluation](https://docs.langchain.com/langsmith/evaluation) |
+| Phoenix | OpenTelemetry/OpenInference tracing, datasets, experiments, prompt work, and evaluators | A test dataset that represents your users | [Phoenix docs](https://arize.com/docs/phoenix) |
+| Langfuse | Traces, prompt versions, experiments, datasets, annotation, and online evaluation | The decision about what “good” means | [Langfuse docs](https://langfuse.com/docs) |
+
+Do not begin with “Which evaluator has the most metrics?” Begin with one failure:
+
+1. **Write the case.** Include input, expected behavior, source evidence, and risk label.
+2. **Use deterministic checks first.** Schema, exact IDs, permissions, tool arguments, and citations often need no model judge.
+3. **Add semantic scoring where rules are insufficient.** Calibrate the judge on examples scored by people.
+4. **Inspect disagreements.** A score without the failing cases does not explain a regression.
+5. **Gate the release.** A cross-tenant leak should fail the build even when the average score is high.
+
+## 3. Prompting: manage a versioned program, not a clever paragraph
+
+Prompt work has four separate jobs:
+
+| Job | Practical options | Evidence to keep |
+|---|---|---|
+| Template and composition | Plain files, LangChain prompt templates, DSPy signatures | Template version and variables |
+| Version and collaboration | LangSmith Prompt Hub, Langfuse prompt management, Phoenix prompts | Immutable version used by each run |
+| Compare variants | Promptfoo, LangSmith experiments, Langfuse experiments, Phoenix datasets | Same cases, model settings, and evaluator |
+| Observe production | LangSmith, Langfuse, Phoenix | Trace, tokens, latency, output, feedback |
+
+The prompt is only one input to the application. Record the retrieved context, tool schemas, model and index versions too. Otherwise a prompt comparison may really be a data or retrieval comparison.
+
+## A five-question adoption test
+
+Before adding any library, answer:
+
+1. Which concrete job will it own?
+2. Can the team export prompts, traces, and datasets?
+3. Where does sensitive text travel and remain?
+4. What happens when the library or its hosted service is unavailable?
+5. Which representative evaluation proves the integration helped?
+
+If those answers are vague, keep the experiment behind a small adapter. Framework choice is reversible only when business logic and data contracts do not leak into every library-specific object.
+
+Continue with [reranking models](./reranking-models/) or [classification metrics](../evals/classification-metrics/).
+
+[^crewai]: CrewAI, [official documentation](https://docs.crewai.com/), including its overview of agents, crews, tasks, and flows.

@@ -113,6 +113,13 @@ const parts = [
 				description: 'Once a workflow branches, waits, retries, or asks a person for help, the hidden loop becomes hard to trust. LangGraph draws that loop as state, nodes, and edges, then saves enough of the journey to continue after the process stops.',
 				href: '/langgraph/',
 			},
+			{
+				number: '12',
+				topic: 'AI ecosystem',
+				title: 'Choose the shelf before the library',
+				description: 'Agent frameworks, evaluation harnesses, prompt platforms, and observability tools often advertise the same language. We separate the jobs, compare the control models, and ask what evidence a new dependency must provide before it enters the system.',
+				href: '/ecosystem/',
+			},
 		],
 	},
 	{
@@ -121,14 +128,21 @@ const parts = [
 		introduction: 'A convincing response is not proof. We need tests that isolate where quality changed and traces that show what the system actually did for a real request.',
 		chapters: [
 			{
-				number: '12',
+				number: '13',
 				topic: 'Evaluation',
 				title: 'Trust begins with a test case',
 				description: 'A RAG system has two chances to fail: it may retrieve the wrong evidence, or it may misuse the right evidence. We measure those jobs separately, compare changes on the same cases, and stop calling a result “better” merely because it reads well.',
 				href: '/evals/',
 			},
 			{
-				number: '13',
+				number: '14',
+				topic: 'Classification metrics',
+				title: 'One score can hide the class that fails',
+				description: 'Five correct labels out of eight sounds clear until the rare fraud class disappears inside the average. A small confusion matrix shows what accuracy, precision, recall, micro-F1, macro-F1, and weighted-F1 remember—and what each one forgets.',
+				href: '/evals/classification-metrics/',
+			},
+			{
+				number: '15',
 				topic: 'LLMOps',
 				title: 'What the system did, and why',
 				description: 'When a production answer fails, the final text is only the last page of the story. The trace must reveal the query, retrieved evidence, tool calls, latency, tokens, model version, and policy decisions that produced it.',
@@ -142,14 +156,14 @@ const parts = [
 		introduction: 'The final chapters ask a practical question: what must remain true when the model misunderstands the request, the evidence contains instructions, or an external service fails?',
 		chapters: [
 			{
-				number: '14',
+				number: '16',
 				topic: 'Prompt injection',
 				title: 'The instruction hidden inside the evidence',
 				description: 'An email, webpage, or retrieved document may contain words that sound like commands. The model cannot reliably decide which words deserve authority. We therefore separate instructions from data and enforce access and tool policy outside the prompt.',
 				href: '/security/prompt-injection/',
 			},
 			{
-				number: '15',
+				number: '17',
 				topic: 'Production delivery',
 				title: 'The morning after the demo',
 				description: 'The useful question is not whether the demo answered once. It is whether the team can release a change, detect a regression, explain a failure, control cost, protect customer data, and recover without turning every incident into an investigation.',

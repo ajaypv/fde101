@@ -1,0 +1,100 @@
+---
+title: Reranking models without the leaderboard fog
+description: Compare hosted rerank APIs, self-hosted cross-encoders, listwise models, and late-interaction models with a measured retrieval example.
+contentType: lesson
+level: Intermediate
+minutes: 13
+topics: [reranking, RAG, cross-encoder, retrieval]
+lastVerified: 2026-08-15
+sidebar:
+  order: 2
+sources:
+  - title: Cross Encoder quickstart
+    url: https://www.sbert.net/docs/quickstart.html#cross-encoder
+    publisher: Sentence Transformers
+    type: official-doc
+  - title: Cohere Rerank 3.5
+    url: https://docs.cohere.com/changelog/rerank-v3.5
+    publisher: Cohere
+    type: official-doc
+  - title: Voyage rerankers
+    url: https://docs.voyageai.com/docs/reranker
+    publisher: Voyage AI
+    type: official-doc
+  - title: Jina Reranker API
+    url: https://jina.ai/en-US/reranker/
+    publisher: Jina AI
+    type: official-doc
+  - title: BGE reranker v2 m3 model card
+    url: https://huggingface.co/BAAI/bge-reranker-v2-m3
+    publisher: BAAI
+    type: official-doc
+---
+
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+
+<LessonMeta level="Intermediate" minutes={13} verified="15 Aug 2026" />
+
+<Takeaway>Retrieve broadly, rerank narrowly, and judge the pair as one system. A reranker cannot restore evidence the first retriever never returned.</Takeaway>
+
+An embedding model reads the query and document separately. A cross-encoder reranker reads the **query and candidate together**, so it can examine how their words and ideas interact. That usually costs more per candidate, which is why it runs after a fast retriever.[^st]
+
+## The four-step picture
+
+```text
+1. BM25 + vector search find 40 candidates
+2. fusion removes duplicates
+3. reranker scores 40 query-document pairs
+4. best 5 passages enter the model context
+```
+
+If the needed policy ranks 83rd before reranking and only 40 candidates are passed forward, the reranker never sees it. Fix candidate recall first.
+
+## Common model families
+
+This is a **selection table, not a quality ranking**. Model catalogs and pricing change; the links are the source of truth.
+
+| Option | Delivery | Useful when | Important trade-off | Official docs |
+|---|---|---|---|---|
+| Cohere `rerank-v3.5` | Hosted API | You want a managed text reranker with multilingual support | Data leaves your service boundary; measure latency and cost | [Cohere](https://docs.cohere.com/changelog/rerank-v3.5) |
+| Voyage `rerank-2.5` | Hosted API | You want a managed instruction-following, multilingual reranker | Provider dependency and request cost | [Voyage](https://docs.voyageai.com/docs/reranker) |
+| Jina `jina-reranker-v3` | API or deployable model | Listwise, multilingual, long-context ranking is useful | Check commercial licensing and deployment route | [Jina](https://jina.ai/models/jina-reranker-v3/) |
+| Jina `jina-reranker-m0` | API or deployable model | The candidates include images or visual documents | Larger multimodal serving footprint | [Jina m0](https://jina.ai/models/jina-reranker-m0/) |
+| BAAI `bge-reranker-v2-m3` | Self-hosted open-weight model | You need a multilingual cross-encoder under your control | You own serving, batching, scaling, and upgrades | [BAAI model card](https://huggingface.co/BAAI/bge-reranker-v2-m3) |
+| Sentence Transformers `CrossEncoder` | Python library for many models | You want a consistent local API or plan to fine-tune on your domain | Model quality and license depend on the selected checkpoint | [CrossEncoder docs](https://www.sbert.net/docs/package_reference/cross_encoder/model.html) |
+
+Late-interaction systems such as ColBERT occupy another point in the design space: they retain multiple token-level vectors and can perform richer matching than a single embedding. They are not a drop-in synonym for a cross-encoder API; indexing and serving are different.
+
+## A real evaluation
+
+A developer searches: `INC-4821 connection reset after deploy`.
+
+| Candidate | Fast retrieval rank | Reranked position | Why |
+|---|---:|---:|---|
+| Incident INC-4821 postmortem | 6 | 1 | Exact incident and failure match |
+| Generic connection-reset guide | 1 | 2 | Semantically close, but not incident-specific |
+| Deployment checklist | 3 | 3 | Relevant background, not the answer |
+
+Test at least these quantities on labeled queries:
+
+1. **Recall before reranking:** Did the candidate pool contain the needed evidence?
+2. **MRR or nDCG after reranking:** Did the model move useful evidence toward the top?
+3. **Final context recall:** Did deduplication and token packing keep it?
+4. **Answer quality:** Did the changed order improve the task result?
+5. **Operations:** What happened to p95 latency and cost per successful answer?
+
+## Choosing in practice
+
+| Constraint | First experiment |
+|---|---|
+| Fast proof of value | Hosted API behind a small adapter |
+| Sensitive data cannot leave the boundary | Self-host a licensed cross-encoder |
+| Multilingual documents | Test multilingual models on your actual language mix |
+| Images, screenshots, or scanned pages | A multimodal reranker plus OCR/layout baselines |
+| Domain-specific jargon | Fine-tune or select using labeled in-domain query-document pairs |
+| Very large candidate pool | Improve first-stage retrieval; do not send everything to a cross-encoder |
+
+Never use a provider score as a universal confidence threshold. Scores are model-specific and corpus-dependent. Calibrate abstention and cutoff rules on your own queries.
+
+[^st]: Sentence Transformers, [Cross Encoder quickstart](https://www.sbert.net/docs/quickstart.html#cross-encoder).
