@@ -1,0 +1,171 @@
+---
+title: Vector search or graph search?
+description: Choose similarity, exact text, filters, relationship traversal, or a measured combination for each part of a search question.
+contentType: lesson
+level: Beginner
+minutes: 14
+topics: [vector search, graph database, graph traversal, hybrid retrieval]
+lastVerified: 2026-08-15
+sidebar:
+  order: 6
+sources:
+  - title: Graph database concepts
+    url: https://neo4j.com/docs/getting-started/appendix/graphdb-concepts/
+    publisher: Neo4j
+    type: official-doc
+  - title: Path patterns and graph patterns
+    url: https://neo4j.com/docs/cypher-manual/current/patterns/reference/path-patterns-and-graph-patterns/
+    publisher: Neo4j
+    type: official-doc
+  - title: Vector indexes
+    url: https://neo4j.com/docs/cypher-manual/current/indexes/semantic-indexes/vector-indexes/
+    publisher: Neo4j
+    type: official-doc
+  - title: How full-text search works
+    url: https://www.elastic.co/docs/solutions/search/full-text/how-full-text-works
+    publisher: Elastic
+    type: official-doc
+  - title: GraphRAG indexing overview
+    url: https://microsoft.github.io/graphrag/index/overview/
+    publisher: Microsoft
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import exampleCode from '../../../examples/rag/vector_graph_search.py?raw';
+
+<LessonMeta level="Beginner" minutes={14} verified="15 Aug 2026" />
+
+<Takeaway>Use vector search for learned similarity and graph traversal for explicit connections. Keep exact words and hard constraints in lexical search, filters, or policy code.</Takeaway>
+
+## Split the question before choosing a database
+
+Suppose a recruiter asks:
+
+> Find a Python developer with cloud and data-engineering experience who has worked with one of my colleagues.
+
+This is not one retrieval problem. It contains four different tests:
+
+| Part of the request | Best starting tool | Why |
+| --- | --- | --- |
+| “experience like Python, cloud, and data engineering” | Vector search | Ranks profiles by proximity in one embedding model's learned representation |
+| “GCP,” “CKA,” a name, or an error code | Lexical search or an exact field lookup | Scores word overlap; a non-analyzed field preserves an exact identifier |
+| “available,” “India,” and “the viewer may see this profile” | Structured filters and authorization rules | Treats required conditions as pass/fail, not as soft similarity |
+| “worked with my colleague” or “within two connections” | Graph traversal | Follows stored relationship types and paths |
+
+A database product can support more than one row in this table. Choose by query behavior, not by product label.
+
+Lexical behavior depends on the field's analyzer. A full-text field may lowercase, stem, or split text, while a keyword or structured field can preserve a normalized exact value.[^full-text]
+
+## Vector search ranks learned similarity
+
+An embedding model converts the request and each profile into vectors. A vector index retrieves nearby vectors under a configured similarity function.[^vector-index]
+
+That can place these profiles close together even when their words differ:
+
+```text
+request:  Python developer with cloud and data-pipeline experience
+profile:  Built ETL workflows with PySpark on Google Cloud
+```
+
+The model does not literally understand the person's career, verify a skill, or prove job fit. It supplies coordinates learned during training. Evaluate the ranking with representative recruiter judgments.
+
+Vector similarity is also the wrong place for hard rules. A highly similar profile with `available = false` must still fail an availability filter.
+
+## Graph search follows recorded relationships
+
+A property graph represents entities as nodes and their connections as typed relationships with optional properties.[^graph-concepts] For example:
+
+```text
+(You)-[:KNOWS]->(Maya)-[:WORKED_WITH]->(Asha)
+```
+
+A traversal visits nodes by following allowed relationships. It can answer “How is Asha connected to me?” because those edges exist in the data. It cannot infer that Asha is a strong Python developer unless the graph also contains suitable properties, skills, or linked evidence.
+
+Cypher expresses a bounded connection query as a path pattern:
+
+```cypher
+MATCH (me:Person {id: $viewerId})-[:KNOWS]->(colleague:Person)
+MATCH (colleague)-[:WORKED_WITH]-(candidate:Person)
+WHERE candidate.openToWork = true
+  AND candidate.region = $region
+RETURN DISTINCT candidate
+```
+
+The path pattern handles connectivity; `WHERE` handles exact properties.[^path-patterns] Production authorization still belongs in enforced access-control checks, not only in generated query text.
+
+## One word called “graph” can mean two things
+
+[HNSW](../../glossary/hnsw/) also uses a graph, but its edges are index machinery: they connect nearby vectors so approximate nearest-neighbor search can navigate the vector space. A domain graph stores business relationships such as `KNOWS`, `WORKED_AT`, or `HAS_SKILL`.
+
+```text
+HNSW edge:       vector A ──near in embedding space── vector B
+Domain edge:     Maya ──WORKED_WITH── Asha
+```
+
+Do not use an HNSW path as proof that two people know each other.
+
+## Combine retrieval methods when the question combines constraints
+
+A practical pipeline can use all four tools:
+
+```text
+authorize viewer
+      ↓
+apply tenant, region, availability, and exact-skill filters
+      ↓
+rank eligible profiles by vector similarity
+      ↓
+follow approved relationship types and path lengths
+      ↓
+return evidence: matched fields, score, and connection path
+```
+
+The order is workload-dependent. A selective graph traversal can create the candidate set before vector ranking. A broad graph can make vector-first retrieval cheaper. Push authorization into every stage that reads data.
+
+Beware of a small vector `top_k`: the best connected candidate may never reach the graph stage. Test filtered recall, over-retrieval, latency, and the final recruiter outcome before fixing the order.
+
+<Code code={exampleCode} lang="python" title="src/examples/rag/vector_graph_search.py" />
+
+The example uses hand-written three-dimensional vectors so the control flow stays visible. They are teaching data, not real embeddings.
+
+Run it on Windows from an activated Python 3.10+ virtual environment:
+
+```powershell
+python --version
+python src/examples/rag/vector_graph_search.py
+```
+
+On macOS or Linux:
+
+```bash
+python3 --version
+python3 src/examples/rag/vector_graph_search.py
+```
+
+It demonstrates three different facts:
+
+1. lexical search for `GCP` matches the literal text but misses “Google Cloud”;
+2. vector ranking puts the cloud-and-data profiles near the teaching query;
+3. hard filters plus the typed `KNOWS → WORKED_WITH` path leave only the eligible profile who worked with a colleague.
+
+## Decision guide
+
+| If the question asks… | Start with… | Add when needed… |
+| --- | --- | --- |
+| “Which profiles describe similar work?” | Vector search | lexical signals, metadata filters, and reranking |
+| “Who has this exact certification or identifier?” | Lexical or structured lookup | synonyms only when the product defines them |
+| “Who is connected to this person or company?” | Graph traversal | path length, relationship type, time, and permission filters |
+| “Who fits this work and is in my network?” | A hybrid pipeline | measure both retrieval stages and expose the supporting path |
+
+Combining vectors and a domain graph is a general architecture pattern. Microsoft GraphRAG is a specific indexing pipeline that extracts entities, relationships, claims, community summaries, and embeddings from unstructured text.[^graphrag] A product with an existing people-and-company graph does not need that pipeline merely because it combines graph and vector retrieval.
+
+Next: [choose a retrieval store](../choosing-retrieval-storage/) or review [vector search foundations](../vector-search-foundations/).
+
+[^vector-index]: Neo4j, [vector indexes](https://neo4j.com/docs/cypher-manual/current/indexes/semantic-indexes/vector-indexes/), describes retrieval of nodes or relationships by similarity between stored and query vectors.
+[^graph-concepts]: Neo4j, [graph database concepts](https://neo4j.com/docs/getting-started/appendix/graphdb-concepts/), defines property-graph nodes, typed relationships, properties, paths, and traversal.
+[^path-patterns]: Neo4j, [path patterns and graph patterns](https://neo4j.com/docs/cypher-manual/current/patterns/reference/path-patterns-and-graph-patterns/), documents how Cypher matches paths through a graph.
+[^full-text]: Elastic, [how full-text search works](https://www.elastic.co/docs/solutions/search/full-text/how-full-text-works), describes analysis, inverted indexes, term matching, and BM25 ranking.
+[^graphrag]: Microsoft, [GraphRAG indexing overview](https://microsoft.github.io/graphrag/index/overview/), lists its standard extraction, community, summary, and embedding stages.

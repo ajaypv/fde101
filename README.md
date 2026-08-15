@@ -11,6 +11,8 @@ pnpm dev
 
 Create a production build with `pnpm build` and inspect it with `pnpm preview`.
 
+Standalone listings under `src/examples/` require Python 3.10 or newer. On Windows, activate a Python 3 virtual environment and confirm `python --version` before using `python`. On macOS or Linux, use `python3` and check `python3 --version`.
+
 ## Content model
 
 - `src/content/docs/` contains the book chapters, glossary, field guide, and interview questions.

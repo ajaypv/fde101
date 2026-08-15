@@ -1,0 +1,152 @@
+---
+title: How an MCP-connected assistant chooses tools
+description: Follow tool discovery, model proposals, host validation, execution, observations, and approval through one invoice-search example.
+contentType: lesson
+level: Intermediate
+minutes: 15
+topics: [MCP, tool calling, tool descriptions, permissions]
+lastVerified: 2026-08-15
+sidebar:
+  order: 4
+sources:
+  - title: MCP tools specification
+    url: https://modelcontextprotocol.io/specification/2026-07-28/server/tools
+    publisher: Model Context Protocol
+    type: official-doc
+  - title: MCP architecture
+    url: https://modelcontextprotocol.io/specification/2026-07-28/architecture
+    publisher: Model Context Protocol
+    type: official-doc
+  - title: MCP security best practices
+    url: https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices
+    publisher: Model Context Protocol
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
+import invoiceCode from '../../../examples/agents/mcp_invoice_search.py?raw';
+
+<LessonMeta level="Intermediate" minutes={15} verified="15 Aug 2026" />
+
+<Takeaway>MCP can expose typed capabilities to an AI application. A model may propose a call; the host and client control exposure, consent, and request-side checks, while the server independently validates input, enforces access, and executes or rejects the tool.</Takeaway>
+
+Suppose a user asks: “Has ABC Technologies sent the July invoice?” The connected application has Gmail, Drive, database, and Slack tools.
+
+## What MCP supplies
+
+An MCP tool definition includes a unique name, a description, and an input schema. It may also include an output schema and annotations.[^tools] A client discovers these definitions through `tools/list`.
+
+```json
+{
+  "name": "search_gmail",
+  "description": "Search email messages and attachments; not Drive files.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "vendor": { "type": "string" },
+      "month": { "type": "string" }
+    },
+    "required": ["vendor", "month"]
+  }
+}
+```
+
+The description helps a model distinguish similar tools. It does not grant authority, prove the server is trusted, or guarantee correct selection. Clients must treat tool annotations from an untrusted server as untrusted metadata.[^tools]
+
+## Who does what?
+
+| Part | Responsibility |
+| --- | --- |
+| MCP server | Advertise tools; authenticate and authorize each call; validate input; rate-limit; sanitize output; execute or reject |
+| MCP client | Carry protocol messages; validate schemas and results; apply timeouts; show sensitive inputs and request confirmation |
+| Host application | Select connections and visible tools, enforce consent and application policy, coordinate the model |
+| Model | Interpret the request and, in a model-controlled design, propose a tool name and arguments |
+| Resource service | Enforce the caller's permission on the exact tenant, mailbox, file, or record even if earlier checks fail |
+
+The MCP architecture assigns orchestration, consent, and application security boundaries to the host.[^architecture] The tools specification also requires servers to validate tool input, implement access control and rate limits, and sanitize output.[^tools] Defense in depth matters: a client-side allowlist does not replace server-side authorization.
+
+The tools specification describes model-controlled use, but it does not mandate one interaction pattern. A host can use a fixed sequence, let a model choose, or combine both.[^tools]
+
+## One safe request flow
+
+<ConceptFlow steps={['Host exposes allowed tools', 'Model or code proposes a call', 'Client validates and asks for consent', 'Server revalidates access and input', 'Server executes or rejects', 'Client validates the result', 'Continue or stop']} label="MCP-connected tool flow" />
+
+For the invoice question, a fixed search order is easy to draw:
+
+```text
+search Gmail → if absent, search Drive → report evidence
+```
+
+That is a workflow, not an agent. A model-directed loop earns its extra cost only when the next source cannot be known until earlier evidence arrives.
+
+If the model proposes `send_slack`, the host should reject it for this read-only request. “The invoice was not found” is not permission to create a message, approve a payment, or contact the vendor.
+
+## Tool descriptions that reduce ambiguity
+
+Write each description as an operating contract:
+
+| Include | Example |
+| --- | --- |
+| What it searches or changes | “Search email messages and attachments” |
+| When to use it | “Use when a sender may have emailed the item” |
+| When not to use it | “Does not search files uploaded directly to Drive” |
+| Input meaning and format | `month` is a month name, `vendor` is the legal vendor name |
+| Output contract | Matching IDs, source links, and timestamps |
+
+Do not place secrets, authorization logic, or mutable business policy only in prose. Enforce those conditions where the tool executes.
+
+## Readable simulation
+
+This standard-library example omits JSON-RPC so the client-side boundary stays visible. The host exposes only two read tools, validates the declared fields and domain constraints, derives the tenant from an authenticated session, searches Gmail, then falls back to Drive. The write tool exists but cannot run through this path.
+
+The example is **not an MCP server implementation**. A real server must repeat input validation and enforce the authenticated caller's access to the requested mailbox or file. Never trust a `tenant_id` or user identity supplied by the model.
+
+<Code code={invoiceCode} lang="python" title="src/examples/agents/mcp_invoice_search.py" />
+
+Run it on Windows from an activated Python 3.10+ virtual environment:
+
+```powershell
+python --version
+python src/examples/agents/mcp_invoice_search.py
+```
+
+On macOS or Linux:
+
+```bash
+python3 --version
+python3 src/examples/agents/mcp_invoice_search.py
+```
+
+Expected trace:
+
+```text
+search_gmail: 0 match(es)
+search_drive: 1 match(es)
+invoice: drive-208
+```
+
+## Test tool choice, not only final prose
+
+Create evaluation cases for:
+
+- the correct first tool and arguments;
+- confusing tool pairs with overlapping names;
+- an empty result followed by the permitted fallback;
+- a write tool proposed during a read-only request;
+- malformed arguments and unknown tool names;
+- prompt injection inside a tool result;
+- a revoked scope or changed tool list.
+
+Record every proposed call, policy decision, result ID, latency, and stop reason. Redact credentials and sensitive content from traces.
+
+## Interview answer
+
+> MCP tells the host which capabilities a server exposes. Clear names, descriptions, and schemas help a model propose a call. The host and client control exposure, consent, and request checks; the server independently validates authorization and input before it executes or rejects. MCP carries the messages—neither the model nor a tool description grants authority.
+
+Next: [bounded agent systems](../), [prompt-injection boundaries](../../security/prompt-injection/), or the [MCP glossary note](../../glossary/model-context-protocol/).
+
+[^tools]: Model Context Protocol, [tools specification, 28 July 2026](https://modelcontextprotocol.io/specification/2026-07-28/server/tools), defines discovery, tool schemas, error results, client checks, and mandatory server-side validation and access controls.
+[^architecture]: Model Context Protocol, [architecture, 28 July 2026](https://modelcontextprotocol.io/specification/2026-07-28/architecture), assigns connection permissions, consent, user authorization decisions, context aggregation, and orchestration to the host while keeping servers independently responsible for their capabilities.

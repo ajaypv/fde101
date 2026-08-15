@@ -29,6 +29,14 @@ sources:
     url: https://developer.hashicorp.com/terraform/intro
     publisher: HashiCorp
     type: official-doc
+  - title: Dataset transformations
+    url: https://scikit-learn.org/stable/data_transforms.html
+    publisher: scikit-learn
+    type: official-doc
+  - title: Common pitfalls and recommended practices
+    url: https://scikit-learn.org/stable/common_pitfalls.html
+    publisher: scikit-learn
+    type: official-doc
 ---
 
 You do not need to train a foundation model before you can build useful AI systems. An applied AI engineer connects models to software, data, tools, tests, and operations. Training models from scratch is a valuable but separate specialization.
@@ -117,6 +125,27 @@ It is a poor store for a policy that changes weekly. Put changing facts in a gov
 | Correct passage was retrieved but answer adds an unsupported exception | Context, instructions, groundedness evaluation | Evidence reached the model; generation behavior failed |
 | Output format fails in the same way across thousands of stable cases | Schema, prompt, then fine-tuning | The target behavior is repeated and measurable |
 
+## When several ML algorithms plateau
+
+If random forest, SGD, and a neural network all perform similarly, pause the algorithm search. They may be hitting the same data ceiling.
+
+Check the measurement and representation first:
+
+```text
+labels → split → raw inputs → features → model → segment-level errors
+```
+
+- Verify that the label measures the real outcome and is not noisy or delayed.
+- Compare against a simple baseline on an untouched test set.
+- Inspect errors by time period and important user segment.
+- Ask which useful facts are missing from the current inputs.
+- Derive features only from information available at prediction time.
+- Put preprocessing inside the evaluation pipeline so test data cannot influence fitting.
+
+For a transaction model, raw timestamps can become “transactions in the last hour,” and an amount can become “amount divided by this account's normal amount.” These features may expose behavior that the raw columns hide. They can also leak future information or encode sensitive proxies.
+
+scikit-learn describes transformations as learned operations that must fit on training data and then apply to unseen data.[^transformations] Its common-pitfalls guide recommends splitting before preprocessing to prevent optimistic scores from data leakage.[^leakage]
+
 ## Where PyTorch fits
 
 Learn tensors, gradients, attention, and optimization when you want deeper model intuition. Go further into PyTorch, GPUs, distributed training, and research papers for model-training or ML-platform roles. Do not use that path as a gate before building and evaluating an applied system.
@@ -152,3 +181,5 @@ Next: build [RAG end to end](../../rag/), study [agent systems](../../agents/), 
 
 [^context]: Anthropic, [“Effective context engineering for AI agents”](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents).
 [^optimization]: OpenAI, [model optimization](https://developers.openai.com/api/docs/guides/model-optimization), describes an eval-driven cycle across prompting and fine-tuning rather than a universal one-time sequence.
+[^transformations]: scikit-learn, [dataset transformations](https://scikit-learn.org/stable/data_transforms.html).
+[^leakage]: scikit-learn, [common pitfalls](https://scikit-learn.org/stable/common_pitfalls.html), explains how fitting preprocessing or feature selection on test data leaks information.

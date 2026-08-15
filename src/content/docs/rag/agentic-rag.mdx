@@ -1,0 +1,180 @@
+---
+title: Agentic RAG earns its loop
+description: Decide when fixed retrieval, routed multi-source research, or model-directed iterative retrieval fits the question.
+contentType: lesson
+level: Advanced
+minutes: 18
+topics: [agentic RAG, adaptive retrieval, routing, evidence]
+lastVerified: 2026-08-15
+sidebar:
+  order: 7
+sources:
+  - title: Retrieval-augmented generation for knowledge-intensive NLP tasks
+    url: https://arxiv.org/abs/2005.11401
+    publisher: arXiv
+    type: paper
+  - title: Adaptive-RAG
+    url: https://arxiv.org/abs/2403.14403
+    publisher: arXiv
+    type: paper
+  - title: ReAct — Synergizing reasoning and acting in language models
+    url: https://arxiv.org/abs/2210.03629
+    publisher: arXiv
+    type: paper
+  - title: Building effective agents
+    url: https://www.anthropic.com/engineering/building-effective-agents
+    publisher: Anthropic
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
+import researchCode from '../../../examples/rag/multi_source_research_workflow.py?raw';
+
+<LessonMeta level="Advanced" minutes={18} verified="15 Aug 2026" />
+
+<Takeaway>Agentic RAG lets model decisions change retrieval while a request is running. Use that flexibility only when evidence shows a fixed or routed workflow cannot handle the query.</Takeaway>
+
+Suppose an enterprise asks:
+
+> Compare three model families for our RAG use case using internal requirements, current benchmark results, and our infrastructure cost data.
+
+The answer needs several kinds of evidence. That does **not** prove it needs several agents.
+
+## Three retrieval shapes
+
+| Shape | Who selects the sources and next step? | Good fit |
+| --- | --- | --- |
+| Fixed RAG | Application code runs a predefined retriever | One known corpus and one-hop questions |
+| Routed or parallel RAG workflow | Code or a bounded classifier selects from known branches | Sources are known and can be searched independently |
+| Agentic or adaptive RAG | A model changes queries, sources, or stopping decisions from observations | Open-ended, multi-hop research whose path is unknown in advance |
+
+“Traditional RAG searches one vector database” is too narrow. The original RAG pattern combines retrieval with generation, not one mandatory store.[^rag] A fixed pipeline can query SQL, keyword search, APIs, and a vector index.
+
+Agentic RAG is also not one standard architecture. It is a useful name for systems where model-driven decisions influence whether, where, or how often to retrieve. Research systems such as Adaptive-RAG choose among no retrieval, one retrieval step, and iterative retrieval according to estimated question complexity.[^adaptive]
+
+## Start with the known workflow
+
+For the model-comparison question, the required evidence is already clear:
+
+<ConceptFlow steps={['Decompose required evidence', 'Authorize sources', 'Retrieve independent facts in parallel', 'Validate coverage and freshness', 'Normalize trade-offs', 'Synthesize with citations']} label="Multi-source evidence workflow" />
+
+```text
+internal requirements ─┐
+current eval results ──┼─ validate provenance and comparable metrics ─ recommendation
+internal cost data ────┘
+```
+
+This fan-out can be deterministic. It is cheaper to test than asking a planner model to rediscover the same three subtasks on every request.
+
+Use model-directed retrieval when the evidence path genuinely depends on findings. For example, a benchmark result may mention a failure mode that requires a new targeted search, or two sources may use incompatible task definitions that require clarification.
+
+## Roles are not necessarily agents
+
+| Label often used in diagrams | It can be implemented as |
+| --- | --- |
+| Planner | A function, template, classifier, or model call that proposes subtasks |
+| Router | An allowlisted mapping from subtask type to source |
+| Retriever | A normal search client or API call |
+| Reflection or coverage check | Required-field validation, a rubric, or a model-assisted gap check |
+| Synthesizer | One grounded generation call over validated evidence |
+
+Do not create five networked agents merely because a diagram has five boxes. Anthropic distinguishes fixed workflows from agents and recommends adding complexity only when task performance justifies its latency and cost.[^patterns]
+
+## Evidence must survive orchestration
+
+Every retrieval worker should return a typed evidence record:
+
+```json
+{
+  "subquestion": "What does our internal RAG eval show?",
+  "source": "benchmark://rag-golden-set/run-184",
+  "observed_at": "2026-08-15",
+  "statement": "Model B passed 94 of 100 cases",
+  "metric_definition": "project-specific accepted answer rubric"
+}
+```
+
+Keep the source, access scope, date, dataset version, metric definition, and raw result ID. A model's relevance score is not provenance.
+
+If one route uses web search, allowlist appropriate primary sources, keep the exact page URL plus publication and retrieval dates, and treat vendor claims separately from independent or internal measurements. Never place private requirements or cost rows into a public search query. Public benchmarks help discover candidates; the company's own representative evaluation set should drive the product decision.
+
+The final comparison should put constraints on the same scale:
+
+- quality on the company's own representative cases;
+- p50 and p95 latency at the expected concurrency;
+- cost per accepted grounded answer, not only token price;
+- data handling, region, retention, and security requirements;
+- tool support, rate limits, and operational fit;
+- source date and model version.
+
+A public benchmark saying one model is “best” and internal cost data saying it is expensive are not contradictory agent decisions. They are different measurements in a multi-objective decision.
+
+## Build the deterministic baseline first
+
+The following standard-library example uses synthetic evidence. It runs three known retrieval tasks in parallel, allowlists the sources, and refuses to continue if required evidence is missing, stale, or lacks provenance.
+
+<Code code={researchCode} lang="python" title="src/examples/rag/multi_source_research_workflow.py" />
+
+Run it on Windows from an activated Python 3.10+ virtual environment:
+
+```powershell
+python --version
+python src/examples/rag/multi_source_research_workflow.py
+```
+
+On macOS or Linux:
+
+```bash
+python3 --version
+python3 src/examples/rag/multi_source_research_workflow.py
+```
+
+This is deliberately **not agentic**: application code owns the plan, sources, and stopping rule.
+
+## Add one bounded adaptive decision
+
+An agentic extension can let a model propose an extra `ResearchTask` only after the deterministic coverage check identifies a gap:
+
+```python
+for round_number in range(2):
+    gaps = find_evidence_gaps(evidence)
+    if not gaps:
+        break
+
+    proposed_task = model_proposes_one_search(gaps)
+    validated_task = validate_source_query_and_budget(proposed_task)
+    evidence.append(retrieve(validated_task))
+
+if find_evidence_gaps(evidence):
+    send_to_human_review("evidence is still incomplete")
+```
+
+The model changes the next retrieval step from an observation, so this small section is agentic. The controller still validates the source, caps rounds and cost, deduplicates queries, and stops or escalates when coverage remains incomplete.
+
+## What can break
+
+| Failure | Control |
+| --- | --- |
+| Planner omits the internal security requirement | Deterministic required-evidence checklist |
+| Router sends private data to web search | Source allowlist and data-classification policy |
+| Worker cites a stale benchmark | Freshness rule and versioned source metadata |
+| Reflection says “complete” without cost data | Code checks required evidence types |
+| Several workers repeat the same search | Query budget and deduplication |
+| Synthesis compares unlike metrics | Normalize dataset, rubric, model version, and denominator |
+| Loop keeps researching | Maximum rounds, time, tokens, and explicit stop reasons |
+
+ReAct shows why an observation loop can help multi-step tasks: later actions can respond to earlier evidence.[^react] The same loop adds failure paths, so evaluate plan coverage, source choice, evidence quality, citation correctness, task success, latency, and cost separately.
+
+## Interview answer
+
+> Fixed RAG uses a predefined retrieval path. Agentic RAG allows model decisions to change what is retrieved, from where, or whether another retrieval step is needed. I begin with a fixed multi-source workflow and add that loop only when measured cases require an adaptive evidence path.
+
+Next: [production retrieval](../production-retrieval/), [agent systems](../../agents/), or [how to evaluate RAG](../../interview/evaluate-rag-system/).
+
+[^rag]: Lewis et al., [“Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks”](https://arxiv.org/abs/2005.11401).
+[^adaptive]: Jeong et al., [“Adaptive-RAG”](https://arxiv.org/abs/2403.14403), evaluates routing questions among no-retrieval, single-step, and iterative strategies and also reports classifier errors.
+[^patterns]: Anthropic, [“Building effective agents”](https://www.anthropic.com/engineering/building-effective-agents), describes workflows, routing, parallelization, and model-directed agents as different patterns with cost and control trade-offs.
+[^react]: Yao et al., [“ReAct: Synergizing reasoning and acting in language models”](https://arxiv.org/abs/2210.03629).

@@ -10,7 +10,7 @@ sidebar:
   order: 19
 ---
 
-**Tool calling** lets a model propose a named operation and structured arguments. The application decides whether and how to execute it, then returns the result to the model.
+**Tool calling** lets a model propose a named operation and structured arguments. The application decides whether to request it. The tool service independently validates authorization and input before it executes or rejects, and the application returns the validated result to the model.
 
 ## Tiny example
 
@@ -25,4 +25,6 @@ The model has requested a lookup; it has not performed one.
 
 ## FDE note
 
-Validate arguments against a schema, authenticate the user, authorize the specific operation and resource, set timeouts, and log the result. Never rely on the model to enforce permissions or confirm that a side effect succeeded.
+Validate arguments against a schema, authenticate the user, authorize the specific operation and resource at the execution boundary, set timeouts, and log the result. Client-side checks add defense in depth but do not replace server-side access control. Never rely on the model to enforce permissions or confirm that a side effect succeeded.
+
+See the complete [MCP-connected tool flow](../../agents/mcp-tool-selection/).

@@ -14,6 +14,8 @@ This is the alphabetical reference behind the front-page field index. Each note 
 
 - [Abstention](./abstention/) — choosing not to guess when evidence is insufficient.
 - [Agent](./agent/) — a model-driven loop that can choose actions and tools.
+- [Agent conflict](./agent-conflict/) — disagreement between specialist findings with different roles or evidence.
+- [Agentic RAG](./agentic-rag/) — retrieval whose path can change from model decisions and observations.
 - [Answer relevance](./answer-relevance/) — whether a response directly addresses the user's question.
 - [BM25](./bm25/) — lexical ranking based on term frequency, rarity, and document length.
 - [Chain or workflow](./workflow/) — a predefined sequence controlled by application code.
@@ -25,10 +27,12 @@ This is the alphabetical reference behind the front-page field index. Each note 
 - [Embedding](./embedding/) — a numeric representation used to compare meaning.
 - [Faithfulness](./faithfulness/) — whether answer claims are supported by retrieved context.
 - [Fine-tuning](./fine-tuning/) — updating model weights to improve a defined, repeated behavior.
+- [Feature engineering](./feature-engineering/) — turning raw observations into useful model inputs without leaking future data.
 
 ## G–R
 
 - [Groundedness](./groundedness/) — whether answer claims are supported by supplied evidence.
+- [Graph database](./graph-database/) — storing entities and explicit relationships for connected-path queries.
 - [Hallucination](./hallucination/) — a generated claim unsupported by available evidence.
 - [HNSW](./hnsw/) — a graph index for approximate nearest-neighbor search.
 - [Hybrid search](./hybrid-search/) — combining semantic and keyword retrieval.

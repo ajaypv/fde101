@@ -1,0 +1,192 @@
+---
+title: When agents disagree, resolve evidence—not votes
+description: Route conflicting specialist findings through evidence validation, deterministic policy, and accountable human review.
+contentType: lesson
+level: Beginner
+minutes: 15
+topics: [multi-agent, conflict resolution, human review, audit, lending]
+lastVerified: 2026-08-15
+sidebar:
+  order: 3
+sources:
+  - title: AI Risk Management Framework Core
+    url: https://airc.nist.gov/airmf-resources/airmf/5-sec-core/
+    publisher: NIST
+    type: standard
+  - title: Regulation B § 1002.9 — Notifications
+    url: https://www.consumerfinance.gov/rules-policy/regulations/1002/9/
+    publisher: Consumer Financial Protection Bureau
+    type: standard
+  - title: Withdrawn guidance
+    url: https://www.consumerfinance.gov/compliance/guidance/withdrawn-guidance/
+    publisher: Consumer Financial Protection Bureau
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import conflictCode from '../../../examples/agents/loan_conflict.py?raw';
+
+<LessonMeta level="Beginner" minutes={15} verified="15 Aug 2026" />
+
+<Takeaway>Do not choose the most confident agent. Validate the evidence, apply reviewed policy in application code, and escalate when the evidence cannot support a safe decision.</Takeaway>
+
+## One application, two findings
+
+Imagine a loan workflow with two specialists:
+
+```text
+eligibility agent: salary and credit evidence pass → proposes APPROVE
+fraud agent: unusual recent transaction found     → proposes REJECT
+```
+
+Neither proposal is the credit decision. Each agent saw a different slice of the case and answered a different question.
+
+| Specialist | Responsibility | Evidence it saw | What it may return |
+| --- | --- | --- | --- |
+| Eligibility | Check the configured eligibility criteria | Verified income and credit records | A proposal plus reason codes and evidence pointers |
+| Fraud risk | Find signals that require investigation | Recent transaction-monitor events | A risk finding plus reason codes and evidence pointers |
+
+Both can be internally consistent while the combined case remains unresolved. This is **agent conflict**: specialist outputs disagree because their roles, evidence, instructions, or data freshness differ.
+
+The right question is not “Which agent do we trust?” Ask:
+
+1. Which evidence came from an authorized source?
+2. Is that evidence current, complete, and attached to this application?
+3. Which reviewed policy applies when signals conflict?
+4. Who has authority to make and explain the final decision?
+
+## Resolve a conflict in five stages
+
+```text
+specialist findings
+        ↓
+validate schema, source, identity, and freshness
+        ↓
+apply deterministic priority rules
+        ↓
+route to a qualified reviewer or abstain
+        ↓
+record evidence, versions, policy, reviewer, outcome, and reasons
+```
+
+NIST's AI RMF calls for documented human-oversight processes, clear human–AI roles, regular evaluation, and safe failure beyond a system's knowledge limits.[^nist-core] A conflict path is one place to make those controls concrete.
+
+## Return findings, not persuasive paragraphs
+
+Each specialist should return a typed result such as:
+
+```json
+{
+  "role": "fraud_agent",
+  "proposed_outcome": "reject",
+  "confidence": 0.78,
+  "reason_codes": ["UNUSUAL_RECENT_TRANSACTION"],
+  "evidence_ids": ["ev-fraud-09"],
+  "model_version": "fraud-model-5",
+  "prompt_version": "fraud-prompt-4"
+}
+```
+
+The evidence ID should point to a record that the orchestrator loads from an authoritative adapter. Do not accept an agent's quoted evidence as proof that the source exists.
+
+For each evidence record, capture at least:
+
+- source system and record ID;
+- applicant or case binding;
+- time observed and freshness rule;
+- verification state;
+- normalized signal and reason code;
+- access policy and retrieval trace.
+
+Keep raw salary, transaction, and identity data out of general-purpose prompts and logs. Store the minimum pointers and decision facts required by reviewed retention and audit policy.
+
+## Policy outranks confidence
+
+A confidence value is only useful after calibration against representative cases. A model's `0.91` can be a self-reported score, not a 91% probability that its proposal is correct.
+
+Application code should own rules such as:
+
+```text
+invalid, missing, or stale evidence → data validation queue
+verified compliance signal         → compliance review queue
+verified fraud signal              → fraud review queue
+unresolved disagreement            → conflict review queue
+otherwise                          → underwriter review queue
+```
+
+The example routes the lower-confidence fraud finding first because verified fraud evidence activates deterministic policy. It does **not** reject the application.
+
+<Code code={conflictCode} lang="python" title="src/examples/agents/loan_conflict.py" />
+
+Run it on Windows from an activated Python 3.10+ virtual environment:
+
+```powershell
+python --version
+python src/examples/agents/loan_conflict.py
+```
+
+On macOS or Linux:
+
+```bash
+python3 --version
+python3 src/examples/agents/loan_conflict.py
+```
+
+The output contains `"credit_decision": "not_made"` and `"requires_human_review": true`. This teaching architecture does not give an LLM authority to approve or deny credit.
+
+## Why a supervisor is not a hard control
+
+A supervisor agent can compare findings, identify a missing document, or prepare a concise review packet. It must not grant itself decision authority.
+
+```text
+useful supervisor task: “List the conflicting claims and missing evidence.”
+unsafe authority:       “Choose whichever loan outcome sounds more convincing.”
+```
+
+The supervisor can share the same stale database, prompt bias, or model weakness as the specialists. Its answer is another model output to validate.
+
+Majority voting has the same limit. Three agents using the same incorrect record can agree for the same reason. Voting counts outputs; it does not verify evidence or make correlated errors independent.
+
+Use a supervisor or vote as a signal only when evaluation shows that it helps. Keep authorization, mandatory policy, and escalation outside the model.
+
+## Abstain and escalate deliberately
+
+Route to a person when:
+
+- evidence is missing, stale, unverified, or bound to the wrong case;
+- specialist reason codes conflict with their cited evidence;
+- a required specialist fails or times out;
+- a policy priority activates;
+- the case falls outside evaluated conditions;
+- the system cannot produce the specific reason the final action would require.
+
+Human review is not a decorative final click. Give the reviewer source records, disagreement details, policy version, and a way to correct data. Measure reviewer overrides, appeal outcomes, time to resolution, and error rates across relevant groups.
+
+## Lending needs an accountable decision path
+
+In the United States, Regulation B requires a covered creditor's written adverse-action notice to either state specific reasons or disclose the applicant's right to request them. When the creditor provides reasons, they must identify the specific principal reasons; generic statements about internal policy or failing a score are insufficient. The official interpretation says the reasons must accurately describe factors actually considered or scored.[^reg-b]
+
+CFPB Circular 2022-03 discussed this requirement for complex algorithms, but the Bureau withdrew that circular on May 12, 2025. Do not cite it as current guidance.[^withdrawn]
+
+That makes traceability part of the product contract:
+
+```text
+final action → actual factors used → source evidence → policy version
+             → authorized reviewer or decision service → applicant notice
+```
+
+An LLM-written explanation cannot repair an untraceable decision after the fact. The final reason must come from the factors that actually drove the action.
+
+This example teaches an engineering boundary, not a complete lending policy or legal opinion. A qualified lending, compliance, fair-lending, privacy, and legal team must define the decision authority, permitted data, notices, review, appeal, retention, and monitoring for each jurisdiction and product.
+
+## Interview answer
+
+> I would trust neither agent's conclusion by itself. Each agent returns structured findings with evidence pointers and version metadata. The orchestrator validates source, case binding, and freshness, then applies deterministic policy priorities. A supervisor may summarize the conflict but cannot authorize the loan. Because lending is high impact, unresolved or policy-triggered cases go to an accountable human review path, and the final action and actual reasons are recorded for notice, audit, and appeal.
+
+Next: compare [message history and durable memory](../message-history-and-memory/) or review [prompt-injection boundaries](../../security/prompt-injection/).
+
+[^nist-core]: NIST, [AI Risk Management Framework Core](https://airc.nist.gov/airmf-resources/airmf/5-sec-core/), especially Govern 3.2, Map 2.2 and 3.5, and Measure 2.5–2.9. The framework is voluntary and is not lending law.
+[^reg-b]: Consumer Financial Protection Bureau, current [Regulation B § 1002.9](https://www.consumerfinance.gov/rules-policy/regulations/1002/9/), including § 1002.9(b)(2) and its official interpretation.
+[^withdrawn]: Consumer Financial Protection Bureau, [withdrawn guidance](https://www.consumerfinance.gov/compliance/guidance/withdrawn-guidance/), lists Circular 2022-03 as withdrawn on May 12, 2025.

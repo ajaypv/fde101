@@ -12,6 +12,8 @@ sidebar:
 
 This is a reference book, not a course you must finish in order. Start with a customer problem, read the smallest useful chapter, and keep the code nearby.
 
+The standalone examples require Python 3.10 or newer. On Windows, activate a Python 3 virtual environment and confirm `python --version` before using `python`. On macOS or Linux, use `python3` and check `python3 --version`.
+
 ## Choose your path
 
 | If you need to… | Read this first | Then read |
@@ -20,7 +22,11 @@ This is a reference book, not a course you must finish in order. Start with a cu
 | Build a grounded assistant | [RAG, end to end](../rag/) | [Chunking](../rag/chunking/) |
 | Move RAG from demo to production | [Production retrieval](../rag/production-retrieval/) | [Evaluation](../evals/) |
 | Understand vector search at scale | [Cosine to HNSW](../rag/vector-search-foundations/) | [Choosing retrieval storage](../rag/choosing-retrieval-storage/) |
+| Choose vector, graph, or both | [Vector versus graph search](../rag/vector-vs-graph-search/) | [Choosing retrieval storage](../rag/choosing-retrieval-storage/) |
+| Research across several sources | [Agentic RAG](../rag/agentic-rag/) | [Evaluation](../evals/) |
 | Build a bounded agent | [Agent systems without chaos](../agents/) | [LangGraph](../langgraph/) |
+| Connect an assistant to tools | [MCP tool selection](../agents/mcp-tool-selection/) | [Prompt injection](../security/prompt-injection/) |
+| Resolve agent disagreement | [Agent conflict resolution](../agents/conflict-resolution/) | [Evaluation](../evals/) |
 | Build a stateful workflow | [LangGraph](../langgraph/) | [State vs memory](../interview/langgraph-state-vs-memory/) |
 | Separate context from memory | [Message history and memory](../agents/message-history-and-memory/) | [State vs memory](../interview/langgraph-state-vs-memory/) |
 | Follow an applied AI roadmap | [Applied AI engineering roadmap](../foundations/applied-ai-roadmap/) | [Context engineering](../glossary/context-engineering/) |

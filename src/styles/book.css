@@ -192,6 +192,18 @@ h1#_top {
 	font-family: var(--sl-font-mono);
 	font-size: 0.85rem;
 	margin-block: 2rem !important;
+	max-width: 100%;
+	min-width: 0;
+}
+
+.expressive-code figure,
+.expressive-code pre {
+	max-width: 100%;
+	min-width: 0;
+}
+
+.expressive-code pre {
+	overflow-x: auto;
 }
 
 .lesson-meta {
