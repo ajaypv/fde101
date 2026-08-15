@@ -280,15 +280,24 @@ const terms = [
 ---
 
 <main class="fde-home">
-	<div class="index-meta" aria-hidden="true">
+	<div class="index-meta">
 		<span>Field index</span>
 		<span>{terms.length} essential terms</span>
 	</div>
 
-	<nav class="term-grid" aria-label="AI field index">
+	<div class="index-sort-row" data-sort-controls hidden>
+		<label for="term-sort">Sort</label>
+		<select id="term-sort" name="term-sort" data-term-sort>
+			<option value="curated">Curated order</option>
+			<option value="alphabetical">A–Z by title</option>
+		</select>
+		<span class="visually-hidden" aria-live="polite" data-sort-status>Showing curated order.</span>
+	</div>
+
+	<nav class="term-grid" aria-label="AI field index" data-term-grid>
 		{terms.map((term, index) => (
-			<a class="term-entry" href={withBase(term.href)}>
-				<span class="term-number">{String(index + 1).padStart(2, '0')}</span>
+			<a class="term-entry" href={withBase(term.href)} data-term-title={term.short ?? term.name}>
+				<span class="term-number" data-term-number>{String(index + 1).padStart(2, '0')}</span>
 				<span class="term-category">{term.category}</span>
 				<strong class="term-name">{term.short ?? term.name}</strong>
 				{term.short && <span class="term-long-name">{term.name}</span>}
@@ -304,3 +313,98 @@ const terms = [
 		<a href={withBase('/field-guide/production-rag-checklist/')}>Production checklist</a>
 	</footer>
 </main>
+
+<script>
+	const grid = document.querySelector<HTMLElement>('[data-term-grid]');
+	const controls = document.querySelector<HTMLElement>('[data-sort-controls]');
+	const select = document.querySelector<HTMLSelectElement>('[data-term-sort]');
+	const status = document.querySelector<HTMLElement>('[data-sort-status]');
+
+	if (grid && controls && select && status) {
+		const entries = Array.from(grid.querySelectorAll<HTMLElement>('[data-term-title]'));
+		const curatedOrder = new Map(entries.map((entry, index) => [entry, index]));
+		const collator = new Intl.Collator(document.documentElement.lang || 'en', {
+			numeric: true,
+			sensitivity: 'base',
+		});
+
+		const applyOrder = (order: string) => {
+			const sortedEntries = [...entries].sort((first, second) => {
+				if (order === 'alphabetical') {
+					return collator.compare(first.dataset.termTitle ?? '', second.dataset.termTitle ?? '');
+				}
+
+				return (curatedOrder.get(first) ?? 0) - (curatedOrder.get(second) ?? 0);
+			});
+
+			const fragment = document.createDocumentFragment();
+			sortedEntries.forEach((entry, index) => {
+				const number = entry.querySelector<HTMLElement>('[data-term-number]');
+				if (number) number.textContent = String(index + 1).padStart(2, '0');
+				fragment.append(entry);
+			});
+			grid.append(fragment);
+
+			status.textContent = order === 'alphabetical'
+				? `Sorted ${entries.length} terms A to Z by title.`
+				: `Showing ${entries.length} terms in curated order.`;
+		};
+
+		select.addEventListener('change', () => applyOrder(select.value));
+		window.addEventListener('pageshow', () => applyOrder(select.value));
+		controls.hidden = false;
+		applyOrder(select.value);
+	}
+</script>
+
+<style>
+	.index-sort-row {
+		align-items: center;
+		border-bottom: 1px solid var(--rule);
+		display: flex;
+		font-family: var(--sans);
+		font-size: 0.68rem;
+		font-weight: 720;
+		gap: 0.55rem;
+		justify-content: flex-end;
+		letter-spacing: 0.09em;
+		padding-block: 0.65rem;
+		text-transform: uppercase;
+	}
+
+	.index-sort-row[hidden] {
+		display: none;
+	}
+
+	.index-sort-row select {
+		appearance: none;
+		background-color: var(--paper);
+		background-image:
+			linear-gradient(45deg, transparent 50%, currentColor 50%),
+			linear-gradient(135deg, currentColor 50%, transparent 50%);
+		background-position:
+			calc(100% - 0.78rem) 50%,
+			calc(100% - 0.52rem) 50%;
+		background-repeat: no-repeat;
+		background-size: 0.28rem 0.28rem, 0.28rem 0.28rem;
+		border: 1px solid var(--rule-heavy);
+		border-radius: 0;
+		color: var(--ink);
+		font: inherit;
+		letter-spacing: 0.04em;
+		min-height: 2.1rem;
+		padding: 0.35rem 1.7rem 0.35rem 0.55rem;
+		text-transform: none;
+	}
+
+	.index-sort-row select:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 3px;
+	}
+
+	@media (max-width: 36rem) {
+		.index-sort-row {
+			justify-content: space-between;
+		}
+	}
+</style>

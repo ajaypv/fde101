@@ -106,8 +106,9 @@ runs = [
         name="Passing run",
         retrieved_ids=["hotel-policy", "meal-policy", "baggage-policy"],
         answer=(
-            "A six-hour delay alone does not establish eligibility. The delay must "
-            "require an overnight stay and be caused by the airline."
+            "A six-hour delay alone does not establish eligibility. Does the delay "
+            "require an overnight stay, and has the airline confirmed that it caused "
+            "the delay?"
         ),
         labels=AnswerLabels(
             faithfulness=True,

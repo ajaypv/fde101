@@ -37,16 +37,24 @@ The standalone examples require Python 3.10 or newer. On Windows, activate a Pyt
 | Build a portfolio project | [Projects that prove engineering](../projects/) | [Production checklist](../field-guide/production-rag-checklist/) |
 | Prepare for an interview | [Interview room](../interview/) | [RAG debugging](../interview/rag-debugging/) |
 
-## How each chapter works
+## Read a full lesson in three passes
 
-Every lesson uses the same reading rhythm:
+You do not need to memorize the whole page. Carry three questions through it:
 
-1. **One sentence** — the idea without framework language.
-2. **Tiny example** — the smallest concrete case.
-3. **Code** — a readable reference, not a magic abstraction.
-4. **Failure modes** — what breaks in a customer environment.
-5. **FDE questions** — what to ask before proposing a design.
-6. **Sources** — official documentation or primary research at the point of the claim.
+1. **What is happening?** Start with the one-sentence mental model and the real customer situation.
+2. **How does it move?** Follow the numbered flow and code from input to decision.
+3. **How would I know it worked?** Read the failure table, evaluation rule, and field questions.
+
+Most full lessons use the elements below. When one appears, use it this way:
+
+| When you see… | Use it to… |
+| --- | --- |
+| A numbered flow | Retell the system in order without framework vocabulary |
+| A comparison table | Choose between designs or locate the stage that failed |
+| A worked case | Attach the abstract idea to one believable situation |
+| Code | Check the data and control flow instead of trusting prose |
+| Field questions | Turn the lesson into a customer or interview conversation |
+| Sources | Verify the claim and check whether it has changed |
 
 ## A sensible first week
 

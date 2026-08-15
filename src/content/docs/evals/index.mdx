@@ -40,6 +40,22 @@ import flightPolicyEvalCode from '../../../examples/evals/flight_policy_eval.py?
 
 Offline evals provide evidence for a production-readiness decision; they do not prove readiness by themselves. Production evidence also includes authorization and privacy tests, operational limits, online monitoring, drift detection, and user outcomes.
 
+## Remember three passes: Find → Answer → Ship
+
+When a RAG reply is wrong, inspect the work in order. The final sentence rarely tells you where the failure began.
+
+1. **Find:** Did retrieval return the needed evidence, and did reranking and context packing preserve it?
+2. **Answer:** Did the model use that evidence without inventing or missing a condition?
+3. **Ship:** Is the behavior safe, useful, fast enough, and affordable enough for this workflow?
+
+| Pass | Artifact to inspect | Useful checks | Likely owner when it fails |
+| --- | --- | --- | --- |
+| 1. Find | Parsed source, search query, ranked passages, final context | Recall@k, Precision@k, and MRR on retrieval; evidence preserved after packing | Ingestion, retrieval, or context assembly |
+| 2. Answer | Final context, response, citations | Faithfulness, relevance, correctness, completeness | Prompt or generation |
+| 3. Ship | End-to-end trace and production telemetry | Abstention, data exposure, p95 latency, cost/query, errors | Application or platform |
+
+Keep the order. Rewriting the prompt cannot recover a policy that never reached the context.
+
 ## Begin with the denominator
 
 Suppose the top three retrieved documents are:
@@ -82,28 +98,32 @@ A final answer can look good even when retrieval was weak, and strong retrieval 
 
 LangSmith documents these as distinct comparison pairs rather than one blended “RAG quality” score.[^rag-eval] RAGAS likewise evaluates retrieval, faithful use of context, and generation quality as separate dimensions.[^ragas]
 
-## Flight delay: two jobs, two failure points
+## Flight delay: follow one support ticket
 
-Use a small case before building a large dashboard. The policy below is **fictional**; it teaches evaluation and does not describe any airline's actual rules.
+Picture a support agent opening this fictional ticket. It resembles a normal airline workflow, but the rule is invented for this lesson.
 
-```text
-Passenger: My flight is delayed by six hours. Am I eligible for a free hotel?
+| Fact available to the system | Status at answer time |
+| --- | --- |
+| The passenger reports a six-hour delay | Known |
+| The itinerary now requires an overnight stay | Unknown |
+| The airline caused the delay | Unknown |
+| The reviewed policy requires **both** an overnight stay and an airline-caused delay | Known |
 
-Gold policy: Hotel accommodation is provided only when both conditions hold:
-1. the delay requires an overnight stay; and
-2. the airline caused the delay.
+The right response cannot be a confident yes or no. It should explain the two conditions and ask for the missing facts.
 
-Reference answer: A six-hour delay alone does not establish eligibility.
-Ask whether an overnight stay is required and whether the airline caused the delay.
-```
+Now walk the ticket through the three passes:
 
-The RAG system must pass two different tests:
+1. **Find:** Search should return the reviewed hotel policy, and context packing should keep it. Suppose retrieval returns that policy plus meal and baggage pages: Hit@3 = `1`, Precision@3 = `1 / 3`, and Recall@3 = `1 / 1`.
+2. **Answer:** If the model says, “Yes. A six-hour delay qualifies,” it answered the topic but ignored both policy conditions. Answer relevance passes; faithfulness and correctness fail.
+3. **Ship:** The application blocks that reply. It asks whether an overnight stay is required and whether the delay was airline-caused, or it sends the case to an agent.
 
-| Run | Hit@3 | Retrieval result | Generated answer | Generation result |
-| --- | --- | --- | --- | --- |
-| Retrieval failure | `0` | Precision@3 = `0 / 3`; Recall@3 = `0 / 1` | Not graded in this isolated stage test | The generator never received the evidence it needed |
-| Generation failure | `1` | Precision@3 = `1 / 3`; Recall@3 = `1 / 1` | “Yes. A six-hour delay qualifies.” | Relevant to the question, but unfaithful and incorrect |
-| Passing run | `1` | Precision@3 = `1 / 3`; Recall@3 = `1 / 1` | “Six hours alone is not enough; both policy conditions must hold.” | Faithful, relevant, and correct |
+This table isolates the same ticket at different failure points:
+
+| Run | Find | Answer | Ship decision |
+| --- | --- | --- | --- |
+| Retrieval failure | Hit@3 = `0`; Precision@3 = `0 / 3`; Recall@3 = `0 / 1` | Not scored in this stage test | Fix retrieval before judging generation |
+| Generation failure | Hit@3 = `1`; Precision@3 = `1 / 3`; Recall@3 = `1 / 1` | “Yes. A six-hour delay qualifies.” | Block: relevant, but unfaithful and incorrect |
+| Passing run | Hit@3 = `1`; Precision@3 = `1 / 3`; Recall@3 = `1 / 1` | “Six hours alone does not decide eligibility. Does the delay require an overnight stay, and has the airline confirmed that it caused the delay?” | Allow: faithful, relevant, correct, and useful |
 
 The denominators tell different stories:[^ranked-metrics]
 

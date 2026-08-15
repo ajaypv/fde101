@@ -29,11 +29,25 @@ import ragCode from '../../../examples/rag/minimal.py?raw';
 
 <Takeaway>RAG retrieves evidence at request time and gives that evidence to a model so the answer can be grounded in information outside its training.</Takeaway>
 
-Ask: “What is our refund window?” The useful answer is in the company policy, not necessarily in the model’s training data.
+## Keep three questions in your head
+
+1. **Where does the truth live?** Name the policy, database, API, or document that should answer the question.
+2. **What evidence reached the model?** Inspect the exact passages after retrieval and context packing.
+3. **What did the model claim?** Check the answer, abstention, and citations against that evidence.
+
+Use a shop return as the running case. A customer asks, “Can I return headphones I bought 18 days ago?” The policy says unopened items have 30 days, while opened items have 14. The source is known, but one fact is still missing: were the headphones opened?
 
 RAG describes the **retrieve, then generate from evidence** pattern.[^rag-paper] It does not prescribe one retrieval technology. The evidence can come from keyword search, vector search, SQL, an API, or a combination. Embeddings and vector databases are common tools, not part of the definition.
 
 <ConceptFlow steps={['Question', 'Retrieve', 'Assemble context', 'Generate', 'Validate and cite']} label="RAG request flow" />
+
+| Step | Artifact in the return case | What a good system does |
+| --- | --- | --- |
+| **1. Question** | “Can I return headphones bought 18 days ago?” | Preserves the product and purchase age |
+| **2. Retrieval** | The 30-day unopened rule and 14-day opened rule | Returns the rule and its qualifier together |
+| **3. Context** | Policy clauses plus the known purchase age | Makes the missing opened/unopened fact visible |
+| **4. Answer** | “At 18 days, unopened headphones are within the 30-day window; opened headphones are past the 14-day window. Were they opened?” | Uses the policy, then asks for the missing fact instead of guessing |
+| **5. Validation** | Answer claims mapped to policy passages | Confirms that the follow-up is justified and citations support it |
 
 ## The smallest honest implementation
 

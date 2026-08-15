@@ -33,25 +33,43 @@ import contextCode from '../../../examples/foundations/context_packet.py?raw';
 
 <Takeaway>Prompt engineering defines the task and response contract. Context engineering selects the trustworthy runtime information the model needs to perform that task.</Takeaway>
 
-Consider this request:
+Picture a developer picking up this ticket on Monday morning:
+
+> Add `POST /auth/refresh` to our FastAPI service. Reuse the JWT code that is already there.
+
+They open a coding assistant but paste only this generic sentence, leaving the ticket out:
 
 > You are an expert Python developer. Write clean, scalable, production-ready authentication code following best practices.
 
-It sounds polished, but it leaves two separate gaps.
+The sentence sounds professional, but it does not describe the ticket or the codebase. The assistant still has to guess what to build and how this service works.
+
+## The three-part mental model
+
+Use this whenever a model works on real code:
+
+| Step | Plain-English question | Engineering job | FastAPI example |
+| --- | --- | --- | --- |
+| **1. Tell it** | What exactly should change? | Prompt engineering | Add one refresh route, preserve current behavior, return a patch and tests |
+| **2. Show it** | What facts does it need? | Context engineering | Supply the auth route, JWT helper, user model, response schema, and tests |
+| **3. Check it** | How will we know it worked? | Validation and evaluation | Run the same tests for valid, expired, and disabled-user tokens |
+
+**Tell it. Show it. Check it.** The first two help the model propose a change. The third decides whether that change belongs in the codebase.
+
+The message sent to the assistant misses the first two steps:
 
 1. **The task is vague.** Should the model add login, refresh tokens, OAuth, or session cookies? What must it return?
 2. **The project is missing.** The model cannot see the framework, current authentication flow, data models, utilities, tests, or security boundaries unless the application supplies them.
 
 Prompt engineering addresses the first gap. Context engineering addresses the second.
 
-## The exact difference
+## Prompt and context answer different questions
 
-| Prompt engineering | Context engineering |
-| --- | --- |
-| Defines the task, instructions, constraints, examples, and output contract | Chooses and organizes the complete working set available for this model call |
-| Asks, “What should the model do, and how should it respond?” | Asks, “What does the model need to know or use right now?” |
-| Usually changes authored instructions | Often retrieves, filters, orders, compacts, or removes information at runtime |
-| Example: “Add one endpoint, preserve behavior, return a patch and tests” | Example: the auth router, JWT utility, user model, API schema, relevant tests, and approved tools |
+| Question | Prompt engineering | Context engineering |
+| --- | --- | --- |
+| What does it control? | The task, instructions, constraints, examples, and output contract | The complete working set available for this model call |
+| What does an engineer change? | Usually the written instruction | Which information is retrieved, filtered, ordered, compressed, or removed |
+| What would failure look like? | The model adds login instead of refresh, or returns prose instead of a patch | The model invents a JWT API because the real helper was absent |
+| What is the FastAPI example? | “Add one endpoint, preserve behavior, return a patch and tests” | The auth router, JWT utility, user model, API schema, relevant tests, and approved tools |
 
 Anthropic describes prompt engineering as writing and organizing instructions, while context engineering curates all tokens used during inference, including tools, external data, and message history.[^anthropic] GitHub’s Copilot guide makes the same practical distinction: a prompt is the request, and the product may also use the current file and chat history as context.[^github]
 
@@ -59,9 +77,11 @@ They are complements, not rivals. A perfect prompt cannot reveal a private API t
 
 At the API level, the prompt text is itself part of the model's context. The two engineering terms describe different areas of focus, not two separate requests sent to the model.
 
-## Repair the authentication request
+## Walk through the FastAPI ticket
 
-Start with a concrete prompt:
+### 1. Tell it what done means
+
+Turn the ticket into a bounded request:
 
 ```text
 Task
@@ -76,21 +96,35 @@ Output contract
 Return a patch, tests, and any unresolved assumption.
 ```
 
-Then assemble the context for this request:
+The phrase “production-ready” adds little. The route, constraints, cases, and output format do the real work.
 
-```text
-app/api/auth.py          current routes and response types
-app/security/jwt.py      token verification and creation APIs
-app/models/user.py       user fields and disabled-account rule
-tests/test_auth.py       fixtures and expected behavior
-pyproject.toml           Python, test, formatting, and typing conventions
-```
+### 2. Show it the local contracts
 
-Now the model has both a destination and a map.
+Do not dump the repository. Start with the files that answer a concrete question:
 
-<ConceptFlow steps={['Understand the task', 'Find candidate context', 'Apply access and freshness rules', 'Rank for relevance', 'Fit the token budget', 'Generate and validate']} label="One model request" />
+| File | Why it belongs in this request |
+| --- | --- |
+| `app/api/auth.py` | Shows where the route belongs and which response types it returns |
+| `app/security/jwt.py` | Defines the real token verification and creation functions |
+| `app/models/user.py` | Carries the disabled-account rule the new route must preserve |
+| `tests/test_auth.py` | Shows fixtures, naming, and behavior the project already expects |
+| `pyproject.toml` | Pins Python and reveals the test, formatting, and typing conventions |
 
-## What can enter a context packet?
+This packet gives the assistant a destination and a map. It still does not grant permission to read secrets, call the network, or edit unrelated files.
+
+### 3. Check the proposed change
+
+The review should answer three questions in order:
+
+1. **Does it fit?** The patch imports existing helpers and follows the current route and response patterns.
+2. **Does it behave?** Valid refresh tokens succeed; expired tokens and disabled users fail in the expected way.
+3. **Does it stay inside the boundary?** The patch does not expose secrets, widen permissions, or change unrelated authentication behavior.
+
+A fluent explanation is not a passing result. The code must compile and the acceptance tests must pass.
+
+<ConceptFlow steps={['Tell it: define the change', 'Show it: select trusted context', 'Check it: compile, test, and review']} label="FastAPI refresh-token request" />
+
+## A quick context checklist
 
 | Context type | Coding-assistant example | Question to ask |
 | --- | --- | --- |
@@ -155,21 +189,25 @@ Retrieved content can also contain instructions written by an attacker. OWASP ca
 
 Enforce filesystem, network, and tool permissions outside the model. Those controls limit what a followed injection can do; prompt wording alone does not.
 
-## How to evaluate the change
+## Evaluate the context builder, not just the prose
 
-Create a small set of real coding tasks with acceptance tests. For each version of the context builder, record:
+Create a small set of real coding tasks with acceptance tests. For each context-builder version, record the same signals:
 
-- whether the necessary file or contract entered the packet;
-- how much irrelevant or duplicate material entered;
-- whether selected items were authorized and current;
-- whether the generated patch compiled and passed the same tests;
-- input tokens, latency, and cost.
+| Signal | Scoring question | First place to inspect |
+| --- | --- | --- |
+| Required-context coverage | What fraction of labeled required contracts entered the packet? `supplied required contracts / all labeled required contracts` | Retrieval or selection |
+| Noise | What fraction of supplied items were labeled irrelevant or duplicate? `irrelevant supplied items / all supplied items` | Ranking, deduplication, or budget rules |
+| Trust | Were all selected items authorized and current? | Access and freshness filters |
+| Task success | Did the patch compile and pass the same acceptance tests? | Inspect the prompt, context, and model output |
+| Tokens, latency, and cost | What did this version consume? | Packet size, caching, or model routing |
+
+Count tokens instead of items when one giant irrelevant file would otherwise look the same as one short irrelevant snippet. Keep the denominator fixed when comparing context-builder versions.
 
 If an authentication patch fails because `issue_access_token()` was missing, fix retrieval or selection. If the right files were present but the model invented an endpoint shape, sharpen the instructions or schema. If the patch passes but exposes a secret, fix the security boundary; no wording change is sufficient.
 
 ## Interview answer
 
-> Prompt engineering defines the task, constraints, examples, and output contract. Context engineering selects the current, relevant, and authorized files, data, tools, history, and state available for that call. Strong systems need both, and I evaluate them by whether the same real tasks pass—not by which term sounds more important.
+> I remember it as **tell it, show it, check it**. Prompt engineering tells the model what change to make and how to return it. Context engineering shows it the smallest current, relevant, and authorized working set. Then tests and review check the result. For a FastAPI refresh route, that means a precise task, the existing auth contracts and tests, and acceptance checks for valid, expired, and disabled-user tokens.
 
 Next: [LLM foundations](../llms/), the [context-engineering glossary entry](../../glossary/context-engineering/), or [prompt-injection boundaries](../../security/prompt-injection/).
 

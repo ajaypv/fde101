@@ -25,7 +25,19 @@ sources:
 
 ## 30-second answer
 
-I evaluate retrieval and generation separately so a single score cannot hide the failing stage. For retrieval, I use labeled evidence and report precision@k, recall@k, rank, and the value of `k`. For generation, I score whether claims are faithful to the retrieved context, whether the answer addresses the question, and whether it is correct and complete against a reference when one exists. I also test citations, abstention, permissions, latency, cost, and errors. Important metrics become release gates on a versioned dataset.
+I use three passes: **Find, Answer, Ship**. First, did retrieval find the labeled evidence? I report precision@k, recall@k, rank, and `k`. Second, did the model answer from that evidence? I check faithfulness, relevance, correctness, and completeness. Third, should we ship the behavior? I test citations, abstention, permissions, latency, cost, and errors against release gates on a versioned dataset.
+
+## The 1–2–3 mental model
+
+1. **Find and preserve the evidence.** Inspect the query, filters, ranked passages, and exact final context.
+2. **Answer from the evidence.** Inspect the final context, claims, and citations.
+3. **Ship only after gates pass.** Inspect the end-to-end trace, safety checks, latency, and cost.
+
+| Pass | Interview question to ask | Metrics or checks |
+| --- | --- | --- |
+| 1. Find | Did retrieval return the answer-bearing passage, and did packing keep it? | Recall@k, Precision@k, and MRR on retrieval; evidence-survival check on final context |
+| 2. Answer | Did the response use that passage correctly? | Faithfulness, relevance, correctness, completeness |
+| 3. Ship | Would I trust this behavior for real users? | Abstention, citation support, permissions, p95 latency, cost, errors |
 
 ## Begin with the denominator
 
@@ -47,7 +59,7 @@ Precision and recall describe different failure costs.[^ir-evaluation] High reca
 
 ## Diagnose one airline answer
 
-Use this synthetic policy, not a real airline rule:
+Use this fictional support ticket, not a real airline rule:
 
 ```text
 Hotel accommodation applies only when:
@@ -55,7 +67,16 @@ Hotel accommodation applies only when:
 2. the airline caused the delay.
 ```
 
-A passenger asks, “My flight is delayed by six hours. Am I eligible for a free hotel?” Suppose the correct policy is one of five retrieved passages and the other four are irrelevant:
+A passenger asks, “My flight is delayed by six hours. Am I eligible for a free hotel?” The booking record confirms six hours, but it does not say whether the trip now requires an overnight stay. The operations feed has not classified the cause.
+
+| Ticket fact | Known? | Decision consequence |
+| --- | --- | --- |
+| Delay is six hours | Yes | Not enough by itself |
+| Overnight stay is required | No | Ask the passenger or inspect the itinerary |
+| Airline caused the delay | No | Check the operations record |
+| Policy requires both conditions | Yes | Do not promise a hotel yet |
+
+Suppose the correct policy is one of five retrieved passages and the other four are irrelevant:
 
 ```text
 Hit@5       = 1
@@ -63,16 +84,23 @@ Precision@5 = 1 / 5
 Recall@5    = 1 / 1
 ```
 
-Hit@5 asks whether at least one relevant result appeared. It equals the pass/fail interpretation of Recall@5 here only because this case has one known relevant policy. Retrieval found all labeled evidence, but it also supplied noise. Now suppose the model answers, “Yes, a six-hour delay qualifies.”
+Hit@5 asks whether at least one relevant result appeared. It equals the pass/fail interpretation of Recall@5 here only because this case has one known relevant policy. Retrieval found all labeled evidence, but it also supplied noise. Suppose context packing preserves all five passages and the model answers, “Yes, a six-hour delay qualifies.”
 
 | Check | Result | Why |
 | --- | --- | --- |
-| Retrieval recall@5 | Passes this case | The policy reached the context |
+| Retrieval recall@5 | Passes this case | The policy appeared in the retrieved top five |
+| Context preservation | Passes this case | The policy remained in the final model context |
 | Answer relevance | Passes | The response addresses hotel eligibility |
 | Faithfulness | Fails | The policy never says six hours alone qualifies |
 | Correctness | Fails | Overnight need and airline-controlled cause are still unknown |
 
-The safe conclusion is not automatically “yes” or “no.” The system needs the two missing facts or must say that eligibility cannot yet be determined. This is why a good retrieval score cannot prove the final answer is good.
+Walk the result through the mental model:
+
+1. **Find passes, with noise:** the policy was retrieved, so Recall@5 is `1 / 1`; Precision@5 is only `1 / 5`.
+2. **Answer fails:** “Six hours qualifies” is relevant to the question but unsupported and incorrect.
+3. **Ship blocks the reply:** ask for the two missing facts or send the ticket to a support agent.
+
+The safe conclusion is not automatically “yes” or “no.” A good retrieval score cannot prove the final answer is good.
 
 ## Score the answer separately
 

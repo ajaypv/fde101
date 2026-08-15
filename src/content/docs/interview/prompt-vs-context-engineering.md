@@ -29,19 +29,31 @@ Prompt engineering designs the task instructions, examples, and output contract.
 
 The prompt is part of the context. The two practices work together.
 
+## Remember three moves
+
+| Move | What you do | Authentication example |
+| --- | --- | --- |
+| **1. Tell it** | State the exact task and output | “Add `POST /auth/refresh`; return a patch and tests” |
+| **2. Show it** | Supply the smallest trusted working set | Current route, JWT helper, user model, schema, and auth tests |
+| **3. Check it** | Validate outside the model | Compile; test valid, expired, and disabled-user cases; review permissions |
+
+The short version is: **tell it, show it, check it**.
+
 ## One authentication request
 
-The instruction sounds strong:
+Imagine the interviewer gives you a real ticket: “Add a refresh-token endpoint to our FastAPI service. Reuse the current JWT flow.” You then paste only this generic sentence into a coding assistant, leaving the ticket out:
 
 > You are an expert Python developer. Write clean, production-ready authentication code.
 
 It still leaves important questions unanswered:
 
-- Does the service use FastAPI, Django, or another framework?
-- Does authentication use sessions, JWTs, or an external identity provider?
-- Which route and service currently own the behavior?
-- What user model, error schema, and database transaction pattern already exist?
-- Which dependency versions and tests constrain the change?
+| Missing fact | Why it changes the patch |
+| --- | --- |
+| Which route, service, and helper signatures own the behavior? | A new file or invented helper may bypass the current caller path |
+| Does the product rotate or revoke refresh tokens? | The patch may implement the wrong security behavior |
+| Which response and error schemas exist? | Generic responses may not compile or match the API contract |
+| Where is token state stored, if anywhere? | Persistence and transaction behavior change the design |
+| Which versions and tests constrain the change? | A plausible API may not exist in the installed dependency version |
 
 A coding assistant needs a small, trusted context packet before it proposes a patch:
 
@@ -56,21 +68,15 @@ user task
 
 Repository indexing and semantic code search can help find related code, but the application still has to respect access policy and choose useful, current material.[^repo-index]
 
-## The engineering flow
+## Run the three moves
 
 ```text
-request
-  ↓
-permission-filtered search
-  ↓
-relevant files + definitions + tests
-  ↓
-rank, trim, and label the context packet
-  ↓
-instructions + context → model proposal
-  ↓
-compile, test, review, and evaluate
+1. TELL     ticket → exact route, constraints, and output contract
+2. SHOW     permission-filtered search → relevant files, definitions, and tests
+3. CHECK    model proposal → compile, acceptance tests, security review
 ```
+
+Suppose the first patch calls `create_refresh_token()`, but this service exposes only `issue_token_pair()`. That is a context failure if the JWT helper never entered the packet. It is an output failure if the helper was present and the model ignored it. The fix depends on where the evidence shows the flow broke.
 
 The model may still produce a bad patch. Context improves the evidence available to it; tests and review decide whether the change works.
 
@@ -96,6 +102,8 @@ There is no universal evidence that context changes always matter more than prom
 ## Strong closing answer
 
 > Prompt engineering tells the model what job to do and how to return the result. Context engineering gives it the smallest trusted working set needed to do that job in this system. For authentication code, I would supply the current route, service, models, utility contracts, dependency versions, and tests—then compile and test the patch instead of trusting fluent output.
+
+If you need a memory hook during the interview: **tell it, show it, check it**.
 
 Continue with the full [context-engineering lesson](../../foundations/context-engineering/), the [context-engineering glossary note](../../glossary/context-engineering/), and [evaluation](../../evals/).
 
