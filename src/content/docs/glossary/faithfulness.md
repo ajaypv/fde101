@@ -29,7 +29,7 @@ The first claim is supported. “Without a receipt” is not, so the answer is n
 ## Do not confuse it with
 
 - **Answer relevance:** does the answer address the question?
-- **Correctness:** does it match trusted truth or a reference answer?
+- [**Correctness:**](../answer-correctness/) does it match trusted truth or a reference answer?
 - **Retrieval relevance:** do the passages relate to the question?
 
 LangSmith's RAG evaluation guide separates these comparison pairs explicitly.[^rag-eval]

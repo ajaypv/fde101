@@ -30,7 +30,7 @@ The answer could be true and supported by a retrieved company-history page. It i
 
 - [Faithfulness](../faithfulness/) compares answer claims with retrieved context.
 - **Answer relevance** compares the answer with the question.
-- **Correctness** compares the answer with trusted truth or a reference answer.
+- [**Correctness**](../answer-correctness/) compares the answer with trusted truth or a reference answer.
 - **Retrieval relevance** compares retrieved passages with the question.
 
 ## FDE note

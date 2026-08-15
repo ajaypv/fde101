@@ -3,7 +3,7 @@ title: Evaluation that changes decisions
 description: Measure retrieval, grounded answers, safety, latency, and cost with explicit denominators and release gates.
 contentType: lesson
 level: Intermediate
-minutes: 18
+minutes: 22
 topics: [evaluation, precision, recall, RAG]
 lastVerified: 2026-08-15
 sidebar:
@@ -32,10 +32,13 @@ import LessonMeta from '../../../components/LessonMeta.astro';
 import Takeaway from '../../../components/Takeaway.astro';
 import retrievalMetricsCode from '../../../examples/evals/retrieval_metrics.py?raw';
 import answerMetricsCode from '../../../examples/evals/rag_answer_metrics.py?raw';
+import flightPolicyEvalCode from '../../../examples/evals/flight_policy_eval.py?raw';
 
-<LessonMeta level="Intermediate" minutes={18} verified="15 Aug 2026" />
+<LessonMeta level="Intermediate" minutes={22} verified="15 Aug 2026" />
 
 <Takeaway>An eval is a repeatable question, expected behavior, scoring rule, and decision threshold—not a demo that looked convincing.</Takeaway>
+
+Offline evals provide evidence for a production-readiness decision; they do not prove readiness by themselves. Production evidence also includes authorization and privacy tests, operational limits, online monitoring, drift detection, and user outcomes.
 
 ## Begin with the denominator
 
@@ -75,9 +78,48 @@ A final answer can look good even when retrieval was weak, and strong retrieval 
 | ANN index | ANN recall@k | Approximate top `k` IDs vs exact top `k` IDs | How closely does the fast index match exact vector search? |
 | Generation | Faithfulness or groundedness | Answer claims vs retrieved context | Does the supplied evidence support each claim? |
 | Generation | Answer relevance | Answer vs user question | Did the response address what was asked? |
-| Generation | Correctness | Answer vs trusted reference | Does the answer agree with known truth? |
+| Generation | [Correctness](../glossary/answer-correctness/) | Answer vs trusted reference | Does the answer agree with known truth? |
 
 LangSmith documents these as distinct comparison pairs rather than one blended “RAG quality” score.[^rag-eval] RAGAS likewise evaluates retrieval, faithful use of context, and generation quality as separate dimensions.[^ragas]
+
+## Flight delay: two jobs, two failure points
+
+Use a small case before building a large dashboard. The policy below is **fictional**; it teaches evaluation and does not describe any airline's actual rules.
+
+```text
+Passenger: My flight is delayed by six hours. Am I eligible for a free hotel?
+
+Gold policy: Hotel accommodation is provided only when both conditions hold:
+1. the delay requires an overnight stay; and
+2. the airline caused the delay.
+
+Reference answer: A six-hour delay alone does not establish eligibility.
+Ask whether an overnight stay is required and whether the airline caused the delay.
+```
+
+The RAG system must pass two different tests:
+
+| Run | Hit@3 | Retrieval result | Generated answer | Generation result |
+| --- | --- | --- | --- | --- |
+| Retrieval failure | `0` | Precision@3 = `0 / 3`; Recall@3 = `0 / 1` | Not graded in this isolated stage test | The generator never received the evidence it needed |
+| Generation failure | `1` | Precision@3 = `1 / 3`; Recall@3 = `1 / 1` | “Yes. A six-hour delay qualifies.” | Relevant to the question, but unfaithful and incorrect |
+| Passing run | `1` | Precision@3 = `1 / 3`; Recall@3 = `1 / 1` | “Six hours alone is not enough; both policy conditions must hold.” | Faithful, relevant, and correct |
+
+The denominators tell different stories:[^ranked-metrics]
+
+- Precision@3 divides the relevant retrieved items by **3 returned positions**.
+- Recall@3 divides the relevant retrieved items by **1 known relevant policy**.
+- Hit@3 asks only whether at least one relevant item appeared. Here it has the same pass/fail value as Recall@3 because the case has exactly one known relevant policy. The metrics differ when several passages are relevant.
+
+The answer labels also compare different evidence:[^rag-eval]
+
+- **Faithfulness** compares answer claims with retrieved context. “Six hours qualifies” is unsupported by the policy.
+- **Answer relevance** compares the answer with the passenger's question. The wrong “yes” still addresses the question, so it can be relevant but incorrect.
+- **Correctness** compares the answer with the reviewed reference answer. The reference says six hours alone is insufficient.
+
+<Code code={flightPolicyEvalCode} lang="python" title="src/examples/evals/flight_policy_eval.py" />
+
+This example leaves answer labels unscored when the gold policy is absent so the first diagnosis stays at the retrieval layer. A separate end-to-end suite should still judge what the user finally saw, including whether the system abstained safely.
 
 ## One question, four different failures
 
@@ -105,6 +147,26 @@ The following provider-neutral shape computes retrieval metrics first and inject
 <Code code={answerMetricsCode} lang="python" title="src/examples/evals/rag_answer_metrics.py" />
 
 Always report `k`, the relevance definition, dataset size, label method, aggregation method, and evaluator version. “Precision improved” is incomplete without them.
+
+## Compare versions with the same test
+
+Suppose the baseline uses a chunk size of 500, `k = 5`, embedding model A, and no reranker. A candidate changes chunking, adds a reranker, or switches to embedding model B. Those settings describe the experiment; they do not prove improvement.
+
+Freeze the questions, corpus and permission snapshot, `k`, query transforms, generation settings, reference answers, evaluator version, and release thresholds. If chunking changes, freeze gold source spans or answer-bearing units and map each candidate's chunks back to them; chunk IDs and boundaries are not stable labels.
+
+Then run both versions and record the measured results:
+
+| Check | Baseline | Candidate | Decision rule |
+| --- | --- | --- | --- |
+| Recall@5 | measured value | measured value | Candidate must meet the retrieval gate |
+| Precision@5 | measured value | measured value | Candidate must not fill context with noise |
+| Faithful answer rate | measured value | measured value | Candidate must meet the grounded-answer gate |
+| Correct answer rate | measured value | measured value | Review every high-impact regression |
+| p95 latency and cost/query | measured value | measured value | Candidate must stay within operating limits |
+
+Do not copy a claim such as “recall rose from 70% to 90%” into a design document unless that exact result came from this system's versioned eval set. Report absolute values, percentage-point deltas, dataset size, paired regressions, and uncertainty. Keep a held-out release set so repeated tuning does not overfit the evaluation.
+
+If chunking, embeddings, and reranking all change together, the experiment supports a claim about the **candidate bundle**. Change one factor at a time or run ablations before attributing the gain to a specific component. LangSmith's official RAG tutorial follows the same core workflow: create a dataset, run the application, and score the results.[^rag-eval]
 
 [MRR](../glossary/mrr/) ignores relevant items after the first, so it does not replace Recall@k for multi-passage answers. **ANN recall@k** is a different denominator again: it measures overlap with exact vector neighbors, not human relevance. High ANN recall can faithfully reproduce a poor embedding ranking.
 

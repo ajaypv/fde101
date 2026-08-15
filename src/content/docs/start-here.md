@@ -29,7 +29,8 @@ The standalone examples require Python 3.10 or newer. On Windows, activate a Pyt
 | Resolve agent disagreement | [Agent conflict resolution](../agents/conflict-resolution/) | [Evaluation](../evals/) |
 | Build a stateful workflow | [LangGraph](../langgraph/) | [State vs memory](../interview/langgraph-state-vs-memory/) |
 | Separate context from memory | [Message history and memory](../agents/message-history-and-memory/) | [State vs memory](../interview/langgraph-state-vs-memory/) |
-| Follow an applied AI roadmap | [Applied AI engineering roadmap](../foundations/applied-ai-roadmap/) | [Context engineering](../glossary/context-engineering/) |
+| Give a coding assistant the right repository context | [Prompt versus context engineering](../foundations/context-engineering/) | [Interview answer](../interview/prompt-vs-context-engineering/) |
+| Follow an applied AI roadmap | [Applied AI engineering roadmap](../foundations/applied-ai-roadmap/) | [Context engineering glossary](../glossary/context-engineering/) |
 | Prove a system works | [Evaluation](../evals/) | [Production checklist](../field-guide/production-rag-checklist/) |
 | Operate and debug a live system | [LLMOps](../llmops/) | [Semantic caching](../llmops/semantic-caching/) |
 | Protect tools from injected content | [Prompt injection](../security/prompt-injection/) | [Agent systems](../agents/) |

@@ -62,6 +62,8 @@ Use this rule instead:
 
 Anthropic defines context engineering as curating the full set of tokens used for inference—system instructions, tools, retrieved data, message history, and other runtime information—not merely polishing a prompt.[^context]
 
+The [prompt-versus-context lesson](../context-engineering/) shows this distinction through one Python authentication change and a permission-filtered repository context packet.
+
 ## Learn capabilities, not a shopping list
 
 | Technology | Capability it can teach | Reach for it when |

@@ -47,6 +47,15 @@ Practice the full answers:
 - [Resolve agent disagreement](../agents/conflict-resolution/)
 - [How MCP-connected tool selection works](../agents/mcp-tool-selection/)
 
+## Models and context
+
+1. What is the difference between prompt engineering and context engineering?
+2. How should a coding assistant find the files, interfaces, and tests relevant to a change?
+3. Why can sending an entire repository make the result worse?
+4. Which repository data must never enter a model context?
+
+Practice: [Prompt engineering versus context engineering](./prompt-vs-context-engineering/) and the full [context-engineering lesson](../foundations/context-engineering/).
+
 ## Evaluation
 
 1. Explain precision@k and recall@k using a denominator.
@@ -54,6 +63,7 @@ Practice the full answers:
 3. What should be measured separately in a RAG system?
 4. How do you turn production failures into evaluation cases?
 5. Which metrics become release gates, and why?
+6. The right policy was retrieved, but the final conclusion is wrong. Which layer failed?
 
 Practice: [How do you evaluate a RAG system?](./evaluate-rag-system/)
 

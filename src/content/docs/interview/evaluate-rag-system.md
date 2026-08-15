@@ -45,6 +45,35 @@ top 3 retrieved:
 
 Precision and recall describe different failure costs.[^ir-evaluation] High recall helps the answer-bearing evidence enter the candidate set. High precision keeps distracting evidence out of the final context.
 
+## Diagnose one airline answer
+
+Use this synthetic policy, not a real airline rule:
+
+```text
+Hotel accommodation applies only when:
+1. the delay requires an overnight stay, and
+2. the airline caused the delay.
+```
+
+A passenger asks, “My flight is delayed by six hours. Am I eligible for a free hotel?” Suppose the correct policy is one of five retrieved passages and the other four are irrelevant:
+
+```text
+Hit@5       = 1
+Precision@5 = 1 / 5
+Recall@5    = 1 / 1
+```
+
+Hit@5 asks whether at least one relevant result appeared. It equals the pass/fail interpretation of Recall@5 here only because this case has one known relevant policy. Retrieval found all labeled evidence, but it also supplied noise. Now suppose the model answers, “Yes, a six-hour delay qualifies.”
+
+| Check | Result | Why |
+| --- | --- | --- |
+| Retrieval recall@5 | Passes this case | The policy reached the context |
+| Answer relevance | Passes | The response addresses hotel eligibility |
+| Faithfulness | Fails | The policy never says six hours alone qualifies |
+| Correctness | Fails | Overnight need and airline-controlled cause are still unknown |
+
+The safe conclusion is not automatically “yes” or “no.” The system needs the two missing facts or must say that eligibility cannot yet be determined. This is why a good retrieval score cannot prove the final answer is good.
+
 ## Score the answer separately
 
 The retrieved evidence says:

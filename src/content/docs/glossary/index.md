@@ -16,6 +16,7 @@ This is the alphabetical reference behind the front-page field index. Each note 
 - [Agent](./agent/) — a model-driven loop that can choose actions and tools.
 - [Agent conflict](./agent-conflict/) — disagreement between specialist findings with different roles or evidence.
 - [Agentic RAG](./agentic-rag/) — retrieval whose path can change from model decisions and observations.
+- [Answer correctness](./answer-correctness/) — whether a response agrees with trusted truth or a reviewed reference.
 - [Answer relevance](./answer-relevance/) — whether a response directly addresses the user's question.
 - [BM25](./bm25/) — lexical ranking based on term frequency, rarity, and document length.
 - [Chain or workflow](./workflow/) — a predefined sequence controlled by application code.

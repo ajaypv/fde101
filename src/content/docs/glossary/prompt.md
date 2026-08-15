@@ -12,6 +12,8 @@ sidebar:
 
 A **prompt** is the input that shapes a model response. In an application it may include system instructions, a user message, examples, retrieved evidence, tool descriptions, and formatting rules.
 
+**Prompt engineering** focuses on writing and organizing the task instructions and examples. [Context engineering](../context-engineering/) selects and maintains the broader working set supplied for the call. The prompt is part of that context.
+
 ## Tiny example
 
 ```text

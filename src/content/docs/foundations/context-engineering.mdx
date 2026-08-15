@@ -1,0 +1,178 @@
+---
+title: Prompt engineering vs context engineering
+description: Learn the difference between clear instructions and the runtime information a model needs to work inside a real codebase.
+contentType: lesson
+level: Beginner
+minutes: 14
+topics: [prompt engineering, context engineering, coding assistants]
+lastVerified: 2026-08-15
+sidebar:
+  order: 3
+sources:
+  - title: Effective context engineering for AI agents
+    url: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    publisher: Anthropic
+    type: official-doc
+  - title: Prompt engineering for GitHub Copilot Chat
+    url: https://docs.github.com/en/copilot/concepts/prompting/prompt-engineering
+    publisher: GitHub
+    type: official-doc
+  - title: LLM01:2025 Prompt Injection
+    url: https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+    publisher: OWASP Gen AI Security Project
+    type: standard
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
+import contextCode from '../../../examples/foundations/context_packet.py?raw';
+
+<LessonMeta level="Beginner" minutes={14} verified="15 Aug 2026" />
+
+<Takeaway>Prompt engineering defines the task and response contract. Context engineering selects the trustworthy runtime information the model needs to perform that task.</Takeaway>
+
+Consider this request:
+
+> You are an expert Python developer. Write clean, scalable, production-ready authentication code following best practices.
+
+It sounds polished, but it leaves two separate gaps.
+
+1. **The task is vague.** Should the model add login, refresh tokens, OAuth, or session cookies? What must it return?
+2. **The project is missing.** The model cannot see the framework, current authentication flow, data models, utilities, tests, or security boundaries unless the application supplies them.
+
+Prompt engineering addresses the first gap. Context engineering addresses the second.
+
+## The exact difference
+
+| Prompt engineering | Context engineering |
+| --- | --- |
+| Defines the task, instructions, constraints, examples, and output contract | Chooses and organizes the complete working set available for this model call |
+| Asks, “What should the model do, and how should it respond?” | Asks, “What does the model need to know or use right now?” |
+| Usually changes authored instructions | Often retrieves, filters, orders, compacts, or removes information at runtime |
+| Example: “Add one endpoint, preserve behavior, return a patch and tests” | Example: the auth router, JWT utility, user model, API schema, relevant tests, and approved tools |
+
+Anthropic describes prompt engineering as writing and organizing instructions, while context engineering curates all tokens used during inference, including tools, external data, and message history.[^anthropic] GitHub’s Copilot guide makes the same practical distinction: a prompt is the request, and the product may also use the current file and chat history as context.[^github]
+
+They are complements, not rivals. A perfect prompt cannot reveal a private API that was never supplied. A large context packet cannot repair an ambiguous task or an undefined output format. Measure both against representative tasks instead of assuming one always matters more.
+
+At the API level, the prompt text is itself part of the model's context. The two engineering terms describe different areas of focus, not two separate requests sent to the model.
+
+## Repair the authentication request
+
+Start with a concrete prompt:
+
+```text
+Task
+Add POST /auth/refresh to the existing FastAPI service.
+
+Instructions
+- Reuse the current JWT helpers and response model.
+- Make the smallest change and preserve existing behavior.
+- Add tests for success, expired tokens, and disabled users.
+
+Output contract
+Return a patch, tests, and any unresolved assumption.
+```
+
+Then assemble the context for this request:
+
+```text
+app/api/auth.py          current routes and response types
+app/security/jwt.py      token verification and creation APIs
+app/models/user.py       user fields and disabled-account rule
+tests/test_auth.py       fixtures and expected behavior
+pyproject.toml           Python, test, formatting, and typing conventions
+```
+
+Now the model has both a destination and a map.
+
+<ConceptFlow steps={['Understand the task', 'Find candidate context', 'Apply access and freshness rules', 'Rank for relevance', 'Fit the token budget', 'Generate and validate']} label="One model request" />
+
+## What can enter a context packet?
+
+| Context type | Coding-assistant example | Question to ask |
+| --- | --- | --- |
+| Relevant files | Router, service, model, configuration | Does this file affect the requested behavior? |
+| API and schema definitions | Function signatures, OpenAPI, database schema | Which contracts must generated code obey? |
+| Project conventions | Formatter, error shape, directory pattern | Which local choices replace generic “best practices”? |
+| Tests and examples | Existing auth tests and fixtures | What behavior already counts as correct? |
+| Tools | Search, test runner, type checker, version control | Which capability is needed and permitted? |
+| History and state | The user’s correction, failed test, current plan | What recent decision must survive this call? |
+| Runtime data | Signed-in tenant, feature flag, current policy | Is it current, authorized, and necessary? |
+
+Do not send every row on every request. Context engineering is the selection process, not the act of filling the context window.
+
+## A deterministic selector
+
+This standard-library example ranks synthetic project files by task tags. Before ranking, it blocks secrets, stale material, and irrelevant files. It then fits the remaining items into a fixed illustrative budget.
+
+<Code code={contextCode} lang="python" title="src/examples/foundations/context_packet.py" />
+
+Run it on Windows from an activated Python 3.10+ virtual environment:
+
+```powershell
+python --version
+python src/examples/foundations/context_packet.py
+```
+
+On macOS or Linux:
+
+```bash
+python3 --version
+python3 src/examples/foundations/context_packet.py
+```
+
+Expected result:
+
+```text
+SELECTED CONTEXT
+- app/security/jwt.py (55 estimated tokens)
+- app/api/auth.py (65 estimated tokens)
+- app/models/user.py (45 estimated tokens)
+- tests/test_auth.py (60 estimated tokens)
+- pyproject.toml (25 estimated tokens)
+
+REJECTED CONTEXT
+- .env: blocked: secret
+- docs/legacy-oauth.md: blocked: stale (318 days)
+- app/billing/invoices.py: skipped: irrelevant
+```
+
+The token counts are fixture metadata, not real tokenizer output. A production implementation should use the selected model’s tokenizer, derive authorization from the signed-in identity, and test whether the selection improves task success.
+
+## Four context risks
+
+| Risk | Example | Control |
+| --- | --- | --- |
+| Budget | Full repository files crowd out the task and output room | Estimate input and output tokens; retrieve sections; cap tool results |
+| Security | `.env`, another tenant’s code, or private records enter the packet | Enforce access in application code; redact secrets; log source IDs, not sensitive text |
+| Staleness | An old OAuth design overrides the current JWT implementation | Prefer source-of-truth files; keep version and verification metadata; refresh before use |
+| Noise | Billing code and old chat turns distract from authentication | Rank for task relevance; deduplicate; drop superseded history; evaluate selection precision |
+
+Retrieved content can also contain instructions written by an attacker. OWASP calls this indirect prompt injection and recommends separating external content, limiting privileges, validating output, and requiring approval for high-risk actions.[^owasp] Labeling data as “context” does not make it trusted. The model should not decide its own permissions.
+
+Enforce filesystem, network, and tool permissions outside the model. Those controls limit what a followed injection can do; prompt wording alone does not.
+
+## How to evaluate the change
+
+Create a small set of real coding tasks with acceptance tests. For each version of the context builder, record:
+
+- whether the necessary file or contract entered the packet;
+- how much irrelevant or duplicate material entered;
+- whether selected items were authorized and current;
+- whether the generated patch compiled and passed the same tests;
+- input tokens, latency, and cost.
+
+If an authentication patch fails because `issue_access_token()` was missing, fix retrieval or selection. If the right files were present but the model invented an endpoint shape, sharpen the instructions or schema. If the patch passes but exposes a secret, fix the security boundary; no wording change is sufficient.
+
+## Interview answer
+
+> Prompt engineering defines the task, constraints, examples, and output contract. Context engineering selects the current, relevant, and authorized files, data, tools, history, and state available for that call. Strong systems need both, and I evaluate them by whether the same real tasks pass—not by which term sounds more important.
+
+Next: [LLM foundations](../llms/), the [context-engineering glossary entry](../../glossary/context-engineering/), or [prompt-injection boundaries](../../security/prompt-injection/).
+
+[^anthropic]: Anthropic, [“Effective context engineering for AI agents”](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents), defines prompt engineering as writing and organizing instructions and context engineering as curating and maintaining the full token set used during inference.
+[^github]: GitHub, [“Prompt engineering for GitHub Copilot Chat”](https://docs.github.com/en/copilot/concepts/prompting/prompt-engineering), says Copilot uses the prompt plus context such as the current file and chat history, and recommends indicating relevant code while removing irrelevant history.
+[^owasp]: OWASP Gen AI Security Project, [“LLM01:2025 Prompt Injection”](https://genai.owasp.org/llmrisk/llm01-prompt-injection/), covers indirect instructions in external files or websites and lists separation, least privilege, validation, and human approval as mitigations.
