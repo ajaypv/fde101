@@ -1,0 +1,75 @@
+---
+title: LangGraph
+description: Learn LangGraph through explicit state, nodes, edges, checkpoints, and one readable Python workflow.
+contentType: lesson
+level: Intermediate
+minutes: 16
+topics: [LangGraph, agents, state, persistence]
+lastVerified: 2026-08-15
+sources:
+  - title: LangGraph overview
+    url: https://docs.langchain.com/oss/python/langgraph/overview
+    publisher: LangChain
+    type: official-doc
+  - title: Persistence
+    url: https://docs.langchain.com/oss/python/langgraph/persistence
+    publisher: LangChain
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
+import graphCode from '../../../examples/langgraph/support_graph.py?raw';
+
+<LessonMeta level="Intermediate" minutes={16} verified="15 Aug 2026" />
+
+<Takeaway>LangGraph makes a long-running workflow explicit as shared state updated by nodes connected through edges.</Takeaway>
+
+<ConceptFlow steps={['Read state', 'Run a node', 'Return an update', 'Choose the next edge', 'Checkpoint when configured']} label="LangGraph execution flow" />
+
+## A graph you can read
+
+This workflow classifies a support question and drafts the next response. The model has been deliberately left out so the orchestration is visible.
+
+<Code code={graphCode} lang="python" title="src/examples/langgraph/support_graph.py" />
+
+The state is the shared record. Each node reads it and returns a partial update. Edges describe what runs next. `START` and `END` make the lifecycle visible.[^overview]
+
+## Why use a graph?
+
+A graph earns its place when a workflow needs some combination of:
+
+- branching based on state;
+- loops with a clear stop condition;
+- human approval before a side effect;
+- resumable execution after a process failure;
+- inspectable intermediate state;
+- deterministic steps mixed with model decisions.
+
+For a single prompt and response, a normal function is clearer.
+
+## Checkpoints, threads, and stores
+
+These terms answer different questions.[^persistence]
+
+| Term | Question it answers |
+| --- | --- |
+| State | What does this run know right now? |
+| Checkpoint | What state snapshot can this run resume from? |
+| Thread | Which sequence of checkpoints belongs to one conversation or job? |
+| Store | What information should be shared across threads? |
+
+Persistence is not automatically “memory.” Decide what may be retained, for how long, and for which tenant.
+
+## FDE questions
+
+- Which nodes can create external side effects?
+- Is retrying a node safe, or could it duplicate an email, ticket, or payment?
+- What identifies a thread, and can one customer ever read another customer’s state?
+- Where can a human inspect and correct state before resuming?
+- What is the hard stop for loops and tool calls?
+
+[^overview]: [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview), official documentation.
+[^persistence]: [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence) describes checkpoints saved to threads and distinguishes checkpointed state from the cross-thread Store.

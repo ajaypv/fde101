@@ -1,0 +1,17 @@
+---
+interface Props {
+	level?: 'Beginner' | 'Intermediate' | 'Advanced';
+	minutes?: number;
+	verified?: string;
+	kind?: string;
+}
+
+const { level, minutes, verified, kind = 'Lesson' } = Astro.props;
+---
+
+<ul class="lesson-meta" aria-label="Lesson details">
+	<li>{kind}</li>
+	{level && <li>{level}</li>}
+	{minutes && <li>{minutes} min read</li>}
+	{verified && <li>Checked {verified}</li>}
+</ul>

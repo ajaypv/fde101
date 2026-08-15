@@ -1,0 +1,12 @@
+---
+interface Props {
+	label?: string;
+}
+
+const { label = 'In one sentence' } = Astro.props;
+---
+
+<aside class="takeaway">
+	<p class="takeaway-label">{label}</p>
+	<div><slot /></div>
+</aside>

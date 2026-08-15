@@ -1,0 +1,69 @@
+---
+title: LLM foundations
+description: Understand tokens, context windows, embeddings, generation, and hallucinations through one small example.
+contentType: lesson
+level: Beginner
+minutes: 12
+topics: [LLM, tokens, context, embeddings, hallucinations]
+lastVerified: 2026-08-15
+sidebar:
+  order: 1
+sources:
+  - title: Retrieval overview
+    url: https://docs.langchain.com/oss/python/langchain/retrieval
+    publisher: LangChain
+    type: official-doc
+---
+
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+
+<LessonMeta level="Beginner" minutes={12} verified="15 Aug 2026" />
+
+<Takeaway>An LLM predicts the next token from the tokens already in its context; it does not consult your private data unless your system supplies that data.</Takeaway>
+
+Suppose the input is:
+
+> The customer cannot sign in because…
+
+The model assigns probabilities to possible next tokens—perhaps “their”, “the”, or “SSO”—selects one, and repeats. Training gives it broad patterns. Your application gives it the current instructions, conversation, tools, and retrieved evidence.
+
+## Five terms to keep separate
+
+| Term | Plain meaning | Why an FDE cares |
+| --- | --- | --- |
+| **Token** | A small text unit processed by the model | Inputs and outputs consume a finite budget |
+| **Context window** | Tokens visible during one model call | Long documents may not fit; irrelevant text can distract |
+| **Embedding** | A numeric representation used to compare meaning | Retrieval quality depends on this representation and the indexed text |
+| **Generation** | Producing an answer token by token | Sampling settings affect variation, not factual access |
+| **Hallucination** | A plausible claim unsupported by available evidence | You need grounding, abstention, and evaluation—not only a better prompt |
+
+## Context is working memory
+
+Think of the context window as a desk. The model can work with what is placed on the desk for this call. The desk is not a database, and adding everything usually makes the work harder.
+
+An application commonly assembles context from:
+
+```text
+system instructions
++ the current user question
++ selected conversation history
++ retrieved company documents
++ tool results
+```
+
+The exact order and labels matter because the model must distinguish instructions from evidence.
+
+## Embeddings are for finding, not answering
+
+An embedding maps text to a vector so that semantically related text can be found with a distance or similarity function. In a RAG system, embeddings normally help select candidate passages. The generation model then reads the actual passage text.[^retrieval]
+
+## Questions to ask in the field
+
+- Which information must be current or customer-specific?
+- Which claims require a citation?
+- What should the system do when evidence is missing?
+- What data is forbidden from entering the model context?
+- What latency and cost budget applies to one answer?
+
+[^retrieval]: LangChain’s [retrieval overview](https://docs.langchain.com/oss/python/langchain/retrieval) separates indexing from runtime retrieval and generation.

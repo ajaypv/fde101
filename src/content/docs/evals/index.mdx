@@ -1,0 +1,82 @@
+---
+title: Evaluation that changes decisions
+description: Measure retrieval, grounded answers, safety, latency, and cost with explicit denominators and release gates.
+contentType: lesson
+level: Intermediate
+minutes: 15
+topics: [evaluation, precision, recall, RAG]
+lastVerified: 2026-08-15
+sidebar:
+  order: 1
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import metricsCode from '../../../examples/evals/retrieval_metrics.py?raw';
+
+<LessonMeta level="Intermediate" minutes={15} verified="15 Aug 2026" />
+
+<Takeaway>An eval is a repeatable question, expected behavior, scoring rule, and decision threshold—not a demo that looked convincing.</Takeaway>
+
+## Begin with the denominator
+
+Suppose the top three retrieved documents are:
+
+```text
+refund-policy        relevant
+pricing              not relevant
+security             not relevant
+```
+
+Two documents are known to be relevant: `refund-policy` and `cancellation-policy`.
+
+- **Precision@3 = 1 / 3**: one of three retrieved documents is relevant.
+- **Recall@3 = 1 / 2**: one of two relevant documents was retrieved.
+
+<Code code={metricsCode} lang="python" title="src/examples/evals/retrieval_metrics.py" />
+
+Always report `k`, the relevance definition, the dataset size, and how labels were produced. “Precision improved” is incomplete without them.
+
+## Evaluate each stage
+
+| Stage | What to measure | Example failure |
+| --- | --- | --- |
+| Ingestion | parse coverage, freshness, metadata | Tables disappear during extraction |
+| Retrieval | recall@k, precision@k, rank | Correct policy never reaches the context |
+| Answer | groundedness, correctness, completeness | Answer contradicts retrieved evidence |
+| Citation | source validity and claim support | Link exists but does not support the sentence |
+| Behavior | abstention, tool choice, policy compliance | Model guesses when evidence is absent |
+| Operations | latency percentiles, cost, error rate | Quality passes but p95 latency misses the SLA |
+
+## Build the dataset before the dashboard
+
+A useful first dataset can be small:
+
+1. collect real questions from users and support staff;
+2. include ordinary cases, edge cases, and adversarial cases;
+3. label acceptable evidence and answer behavior;
+4. preserve dataset versions;
+5. inspect failures individually before averaging scores.
+
+## Turn a metric into a gate
+
+Define the decision before running the evaluation:
+
+```text
+Release only if:
+  retrieval recall@5 >= 0.90
+  grounded answer rate >= 0.95
+  correct abstention rate >= 0.90
+  p95 latency <= 4 seconds
+  no critical data-isolation failures
+```
+
+Thresholds should follow the workflow risk. A writing assistant and an invoice approval agent should not share the same gate.
+
+## FDE questions
+
+- What user decision could a wrong answer change?
+- Which failures are severe even if the average score is high?
+- Does the test set represent each customer, language, permission level, and source type?
+- Can a reviewer trace a failing score back to input, retrieval, model output, and code version?

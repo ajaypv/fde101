@@ -1,0 +1,91 @@
+---
+const shelves = [
+	{
+		number: '01',
+		title: 'LLM foundations',
+		description: 'Tokens, context, embeddings, generation, and the limits that shape every AI system.',
+		href: '/foundations/llms/',
+		meta: 'Beginner · 12 min',
+	},
+	{
+		number: '02',
+		title: 'RAG, end to end',
+		description: 'Turn private knowledge into grounded answers—and learn how to debug retrieval before prompts.',
+		href: '/rag/',
+		meta: 'Core path · 18 min',
+	},
+	{
+		number: '03',
+		title: 'LangChain & LangGraph',
+		description: 'Know when a chain is enough, when a graph helps, and what state and persistence really mean.',
+		href: '/langgraph/',
+		meta: 'Intermediate · 16 min',
+	},
+	{
+		number: '04',
+		title: 'Evaluation',
+		description: 'Measure retrieval, answers, safety, latency, and cost with explicit denominators.',
+		href: '/evals/',
+		meta: 'Production · 15 min',
+	},
+];
+---
+
+<main class="fde-home">
+	<section class="home-intro" aria-labelledby="home-title">
+		<p class="eyebrow">A field notebook for builders</p>
+		<h1 id="home-title">Learn the systems behind useful AI products.</h1>
+		<p class="home-deck">
+			A plain-language, code-first guide to LLMs, RAG, agents, evaluation, and the work of a
+			forward-deployed engineer.
+		</p>
+		<div class="home-actions">
+			<a class="primary-action" href="/start-here/">Start reading <span aria-hidden="true">→</span></a>
+			<a class="text-action" href="/glossary/">Open the glossary</a>
+		</div>
+	</section>
+
+	<section class="home-section" aria-labelledby="contents-title">
+		<div class="section-rule">
+			<p>Volume I</p>
+			<h2 id="contents-title">The working shelf</h2>
+		</div>
+		<div class="book-grid">
+			{shelves.map((shelf) => (
+				<a class="book-entry" href={shelf.href}>
+					<span class="book-number">{shelf.number}</span>
+					<h3>{shelf.title}</h3>
+					<p>{shelf.description}</p>
+					<span class="book-meta">{shelf.meta}</span>
+				</a>
+			))}
+		</div>
+	</section>
+
+	<section class="field-note" aria-labelledby="field-note-title">
+		<div>
+			<p class="eyebrow">The FDE lens</p>
+			<h2 id="field-note-title">Knowing the API is not the job.</h2>
+		</div>
+		<div>
+			<p>
+				The job is turning an unclear business problem into a system people can trust, operate, and
+				improve. Each chapter therefore connects the idea to a customer question, a failure mode,
+				and a measurable check.
+			</p>
+			<a class="text-action" href="/field-guide/production-rag-checklist/">Use the production checklist →</a>
+		</div>
+	</section>
+
+	<section class="home-section" aria-labelledby="desk-title">
+		<div class="section-rule">
+			<p>Reference desk</p>
+			<h2 id="desk-title">Look something up</h2>
+		</div>
+		<nav class="quick-index" aria-label="Reference pages">
+			<a href="/glossary/"><span>Terms in plain English</span><strong>Glossary</strong></a>
+			<a href="/interview/"><span>Explain your reasoning</span><strong>Interview room</strong></a>
+			<a href="/evals/"><span>Know if it works</span><strong>Evaluation guide</strong></a>
+		</nav>
+	</section>
+</main>

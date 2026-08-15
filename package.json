@@ -1,0 +1,20 @@
+{
+  "name": "fde101",
+  "type": "module",
+  "version": "0.0.1",
+  "packageManager": "pnpm@10.10.0",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.3",
+    "@astrojs/starlight": "^0.41.7",
+    "@fontsource-variable/newsreader": "^5.3.0",
+    "astro": "^7.1.6",
+    "sharp": "^0.35.3"
+  }
+}

@@ -1,0 +1,76 @@
+---
+title: RAG, end to end
+description: Learn retrieval-augmented generation as a five-step system, with provider-neutral Python and practical failure modes.
+contentType: lesson
+level: Beginner
+minutes: 18
+topics: [RAG, retrieval, citations, grounding]
+lastVerified: 2026-08-15
+sidebar:
+  order: 1
+sources:
+  - title: Retrieval overview
+    url: https://docs.langchain.com/oss/python/langchain/retrieval
+    publisher: LangChain
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
+import ragCode from '../../../examples/rag/minimal.py?raw';
+
+<LessonMeta level="Beginner" minutes={18} verified="15 Aug 2026" />
+
+<Takeaway>RAG retrieves evidence at request time and gives that evidence to a model so the answer can be grounded in information outside its training.</Takeaway>
+
+Ask: “What is our refund window?” The useful answer is in the company policy, not necessarily in the model’s training data.
+
+<ConceptFlow steps={['Question', 'Retrieve', 'Assemble context', 'Generate', 'Validate and cite']} label="RAG request flow" />
+
+## The smallest honest implementation
+
+This example hides vendor details behind two tiny interfaces. The important parts remain visible: retrieval depth, source labels, an abstention instruction, and citation markers.
+
+<Code code={ragCode} lang="python" title="src/examples/rag/minimal.py" />
+
+The code does **not** prove the answer is correct. It creates a testable path from question to evidence to answer.
+
+## Offline indexing and online answering
+
+RAG has two different lifecycles.[^retrieval]
+
+| Lifecycle | Typical work | Typical failure |
+| --- | --- | --- |
+| **Indexing** | Load, clean, split, embed, and store documents | Stale, duplicated, badly parsed, or permission-blind content |
+| **Answering** | Understand the question, retrieve passages, build context, generate, cite | Wrong query, weak ranking, missing evidence, unsupported claim |
+
+Keeping these lifecycles separate makes incidents easier to diagnose. A prompt change cannot repair a PDF that was never parsed correctly.
+
+## Debug in evidence order
+
+1. Was the correct source indexed and current?
+2. Did the retriever return the relevant passage?
+3. Was that passage preserved in the final context?
+4. Did the model use it accurately?
+5. Does the citation point to the passage that supports the claim?
+
+## Common design choices
+
+| Choice | Start simple | Add complexity when… |
+| --- | --- | --- |
+| Retrieval | One semantic search | Queries need filters, keyword matches, or multiple sources |
+| Ranking | Vector similarity | Top results are related but not answer-bearing |
+| Generation | One grounded call | The task requires tools, branching, approval, or recovery |
+| Citations | Passage-level source IDs | Users need page, section, timestamp, or access-controlled links |
+
+## Questions to ask in the field
+
+- Who owns source freshness and deletion?
+- Must retrieval enforce each user’s document permissions?
+- What is a correct abstention for this workflow?
+- How will support staff inspect the retrieved passages?
+- Which representative questions will become the first evaluation set?
+
+[^retrieval]: LangChain’s [retrieval documentation](https://docs.langchain.com/oss/python/langchain/retrieval) describes indexing as a separate process from runtime retrieval and generation.
