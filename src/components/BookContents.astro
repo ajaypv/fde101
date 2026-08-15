@@ -75,18 +75,39 @@ const parts = [
 	},
 	{
 		label: 'Part Four',
+		title: 'When systems need a shared language',
+		introduction: 'A tool call, a delegated task, and a user interface cross different boundaries. Protocols give each boundary a contract without pretending that discovery is the same as trust.',
+		chapters: [
+			{
+				number: '08',
+				topic: 'A2A',
+				title: 'An agent introduces itself, then accepts the work',
+				description: 'An Agent Card says what a remote agent claims to do and how to reach it. A task gives the delegated work an identity, a lifecycle, and concrete artifacts. Between those two objects lies the difficult work of trust, authorization, and recovery.',
+				href: '/protocols/a2a/',
+			},
+			{
+				number: '09',
+				topic: 'A2UI',
+				title: 'The answer becomes an interface',
+				description: 'Instead of sending executable frontend code, an agent describes a surface using components the client already knows. The renderer validates that small vocabulary, supplies native behavior, and returns user actions to an application that still controls permission.',
+				href: '/protocols/a2ui/',
+			},
+		],
+	},
+	{
+		label: 'Part Five',
 		title: 'Two frameworks, two kinds of help',
 		introduction: 'LangChain gives common names to the pieces of an AI application. LangGraph makes the movement between those pieces explicit. Neither framework replaces the architecture you still have to choose.',
 		chapters: [
 			{
-				number: '08',
+				number: '10',
 				topic: 'LangChain',
 				title: 'A shared vocabulary for the application',
 				description: 'Messages, models, tools, retrievers, and runnables appear in nearly every AI application. LangChain gives them compatible interfaces. We learn those interfaces one at a time, then decide where the abstraction saves work and where plain Python says more.',
 				href: '/langchain/',
 			},
 			{
-				number: '09',
+				number: '11',
 				topic: 'LangGraph',
 				title: 'Give the loop a map',
 				description: 'Once a workflow branches, waits, retries, or asks a person for help, the hidden loop becomes hard to trust. LangGraph draws that loop as state, nodes, and edges, then saves enough of the journey to continue after the process stops.',
@@ -95,19 +116,19 @@ const parts = [
 		],
 	},
 	{
-		label: 'Part Five',
+		label: 'Part Six',
 		title: 'Evidence after the answer',
 		introduction: 'A convincing response is not proof. We need tests that isolate where quality changed and traces that show what the system actually did for a real request.',
 		chapters: [
 			{
-				number: '10',
+				number: '12',
 				topic: 'Evaluation',
 				title: 'Trust begins with a test case',
 				description: 'A RAG system has two chances to fail: it may retrieve the wrong evidence, or it may misuse the right evidence. We measure those jobs separately, compare changes on the same cases, and stop calling a result “better” merely because it reads well.',
 				href: '/evals/',
 			},
 			{
-				number: '11',
+				number: '13',
 				topic: 'LLMOps',
 				title: 'What the system did, and why',
 				description: 'When a production answer fails, the final text is only the last page of the story. The trace must reveal the query, retrieved evidence, tool calls, latency, tokens, model version, and policy decisions that produced it.',
@@ -116,19 +137,19 @@ const parts = [
 		],
 	},
 	{
-		label: 'Part Six',
+		label: 'Part Seven',
 		title: 'The boundary around the system',
 		introduction: 'The final chapters ask a practical question: what must remain true when the model misunderstands the request, the evidence contains instructions, or an external service fails?',
 		chapters: [
 			{
-				number: '12',
+				number: '14',
 				topic: 'Prompt injection',
 				title: 'The instruction hidden inside the evidence',
 				description: 'An email, webpage, or retrieved document may contain words that sound like commands. The model cannot reliably decide which words deserve authority. We therefore separate instructions from data and enforce access and tool policy outside the prompt.',
 				href: '/security/prompt-injection/',
 			},
 			{
-				number: '13',
+				number: '15',
 				topic: 'Production delivery',
 				title: 'The morning after the demo',
 				description: 'The useful question is not whether the demo answered once. It is whether the team can release a change, detect a regression, explain a failure, control cost, protect customer data, and recover without turning every incident into an investigation.',

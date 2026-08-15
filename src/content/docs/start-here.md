@@ -26,6 +26,7 @@ The standalone examples require Python 3.10 or newer. On Windows, activate a Pyt
 | Research across several sources | [Agentic RAG](../rag/agentic-rag/) | [Evaluation](../evals/) |
 | Build a bounded agent | [Agent systems without chaos](../agents/) | [LangGraph](../langgraph/) |
 | Connect an assistant to tools | [MCP tool selection](../agents/mcp-tool-selection/) | [Prompt injection](../security/prompt-injection/) |
+| Connect agents or render agent-driven UI | [Protocol map](../protocols/) | [A2A](../protocols/a2a/) and [A2UI](../protocols/a2ui/) |
 | Resolve agent disagreement | [Agent conflict resolution](../agents/conflict-resolution/) | [Evaluation](../evals/) |
 | Build a stateful workflow | [LangGraph](../langgraph/) | [State vs memory](../interview/langgraph-state-vs-memory/) |
 | Separate context from memory | [Message history and memory](../agents/message-history-and-memory/) | [State vs memory](../interview/langgraph-state-vs-memory/) |

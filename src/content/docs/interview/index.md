@@ -58,6 +58,22 @@ Practice the full answers:
 - [Resolve agent disagreement](../agents/conflict-resolution/)
 - [How MCP-connected tool selection works](../agents/mcp-tool-selection/)
 
+## Protocols
+
+1. When would you use MCP, A2A, or A2UI? Name the two sides of each boundary.
+2. What belongs in an A2A Agent Card, and why is the card not proof of trust?
+3. In A2A, what is the difference between a Message, Task, Part, Artifact, and `contextId`?
+4. How would you resume or observe a long-running A2A task after the client disconnects?
+5. How does A2UI render an agent-created interface without executing arbitrary agent code?
+6. What is an A2UI component catalog, and how does capability negotiation limit what an agent may emit?
+7. Why must an A2UI action still pass ordinary server-side authorization?
+
+Practice the full answers:
+
+- [Choose MCP, A2A, or A2UI](../protocols/)
+- [A2A Agent Cards and tasks](../protocols/a2a/)
+- [A2UI surfaces, catalogs, and actions](../protocols/a2ui/)
+
 ## Models and context
 
 1. What is the difference between prompt engineering and context engineering?

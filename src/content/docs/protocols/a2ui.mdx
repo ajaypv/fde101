@@ -1,0 +1,155 @@
+---
+title: A2UI — surfaces, catalogs, and actions
+description: Learn how an agent streams a declarative interface that a trusted client validates and renders with native components.
+contentType: lesson
+level: Intermediate
+minutes: 15
+topics: [A2UI, generative UI, surfaces, component catalogs, actions]
+lastVerified: 2026-08-15
+sidebar:
+  order: 3
+sources:
+  - title: A2UI Protocol v0.9.1
+    url: https://a2ui.org/specification/v0.9.1-a2ui/
+    publisher: A2UI Project
+    type: standard
+  - title: A2UI A2A Extension v0.9.1
+    url: https://a2ui.org/specification/v0.9.1-a2ui-extension-specification/
+    publisher: A2UI Project
+    type: standard
+  - title: A2UI specification versions
+    url: https://a2ui.org/
+    publisher: A2UI Project
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
+import passengerUi from '../../../examples/protocols/a2ui_passenger_options.jsonl?raw';
+
+<LessonMeta level="Intermediate" minutes={15} verified="15 Aug 2026" kind="Protocol lesson" />
+
+<Takeaway>A2UI sends a declarative UI contract, not executable frontend code. The client chooses the supported catalog, validates every message, and maps approved components to its own native widgets.</Takeaway>
+
+A passenger-care agent could answer with a paragraph. Sometimes the user needs more: a status card, evidence links, a choice of remedies, and a button that requests human review.
+
+A2UI lets the agent describe that interface without sending React, Swift, Flutter, or arbitrary JavaScript. A renderer on each platform turns the same abstract component description into trusted local components.[^a2ui-spec]
+
+## Version first
+
+As checked on 15 August 2026:
+
+| Version | Status | What to do |
+| --- | --- | --- |
+| A2UI `v0.9.1` | Current production release | Use this lesson’s message names and schemas |
+| A2UI `v1.0` | Candidate | Evaluate separately; do not assume candidate fields are production-stable |
+| A2UI `v0.8` | Legacy | Expect older names such as `beginRendering` and `surfaceUpdate` |
+
+The version field belongs in every v0.9.1 envelope. Do not mix examples across versions: v0.9 uses `createSurface`, `updateComponents`, and `updateDataModel`, while many older posts still use v0.8 names.
+
+## The seven objects to remember
+
+| Object | Plain meaning | Passenger-care example |
+| --- | --- | --- |
+| Surface | One named UI area with its own components and data | `passenger_options` card |
+| Component | An abstract widget with a stable ID | `Text`, `Column`, or `Button` |
+| Component catalog | The schema and vocabulary the renderer agrees to support | The v0.9.1 basic catalog or an airline-owned catalog |
+| Renderer | Trusted client code that validates and maps abstract components to native widgets | Web, Android, iOS, or desktop application |
+| Data model | Surface state kept separately from component structure | Case ID and eligibility status |
+| Data binding | A JSON Pointer or function that supplies a component value | `/care/status` |
+| Action | A user interaction returned to the server or handled by an approved local function | `request_human_review` |
+
+A catalog is both vocabulary and boundary. If the client supports `Text`, `Card`, and `Button`, the agent may compose those elements. It cannot invent `RunShellCommand` and expect the client to execute it.
+
+## The four server-to-client messages
+
+<ConceptFlow steps={['createSurface names the surface and catalog', 'updateComponents adds or replaces component definitions', 'updateDataModel supplies or changes bound data', 'renderer validates and displays native widgets', 'later updates change structure or data', 'deleteSurface removes the UI area']} label="A2UI rendering flow" />
+
+| Message | Purpose | Rule worth remembering |
+| --- | --- | --- |
+| `createSurface` | Create a surface and select a catalog | Create before updating; catalog and surface ID stay fixed until deletion |
+| `updateComponents` | Add or replace components | Components form a flat list linked by IDs; one component must be `root` |
+| `updateDataModel` | Replace all data or update one JSON Pointer path | Data changes need not resend component structure |
+| `deleteSurface` | Remove the surface, components, and data | Recreate it if the catalog must change |
+
+## A complete three-message interface
+
+The first line creates the surface. The second supplies a flat component list. The third supplies the bound case data.
+
+<Code code={passengerUi} lang="jsonl" title="src/examples/protocols/a2ui_passenger_options.jsonl" />
+
+The renderer resolves `/care/status` when it draws the `status` component. Clicking the button sends an action event with the resolved case ID.
+
+```json title="Client-to-server action"
+{
+  "version": "v0.9.1",
+  "action": {
+    "name": "request_human_review",
+    "surfaceId": "passenger_options",
+    "sourceComponentId": "request_button",
+    "timestamp": "2026-08-15T12:00:00Z",
+    "context": {
+      "caseId": "CASE-1047"
+    }
+  }
+}
+```
+
+An action is an event, not authorization. The server must authenticate the caller, validate the case ID, check ownership and policy, and decide whether the requested operation is allowed.
+
+## Why the component list is flat
+
+A2UI uses an adjacency-list model: components live in one list and refer to children by ID. This supports progressive updates and avoids requiring one deeply nested UI tree in a single generated object.
+
+```text
+root (Card)
+  └── content (Column)
+        ├── title (Text)
+        ├── status (Text bound to /care/status)
+        └── request_button (Button)
+```
+
+The client may receive a reference before its component or data arrives. A renderer should show an empty value or placeholder, then update when the missing message arrives. It should not crash or execute fallback code from the agent.
+
+## Transport and capability negotiation
+
+A2UI defines UI messages but does not require one transport. A2A, AG-UI, MCP, SSE, or WebSockets can carry the envelopes when they preserve message order and framing.[^a2ui-transport]
+
+Before generation, the server needs to know what the client can render. With the A2A extension, the client sends `a2uiClientCapabilities`, including `supportedCatalogIds`, in message metadata. A2UI envelopes travel inside A2A data parts identified with the `application/a2ui+json` media type.[^a2ui-a2a]
+
+```text
+client supports: airline-basic-v3, a2ui-basic-v0.9.1
+agent selects:   airline-basic-v3
+agent emits:     only components and functions in airline-basic-v3
+client validates → client renders
+```
+
+If no catalog matches, return an ordinary text or data response. Do not guess that an unsupported component will work.
+
+## Production boundary
+
+1. **Allowlist catalogs.** Load schemas from trusted build-time or administrative configuration, not an arbitrary URL supplied by the agent.
+2. **Validate every envelope.** Reject unknown versions, component types, invalid references, malformed data bindings, and oversized payloads.
+3. **Render locally.** Map catalog entries to maintained native components; never evaluate code, HTML, URLs, or styles as trusted merely because they arrived in A2UI.
+4. **Constrain actions.** Treat action names and context as untrusted input. Apply server-side authentication, authorization, validation, rate limits, and approval.
+5. **Minimize synchronized state.** `sendDataModel` can return an entire surface data model with later messages. Do not place secrets or unrelated personal data in that model.
+6. **Keep origin ownership.** Send a surface’s synchronized data only to the server that owns that surface.
+7. **Trace the UI contract.** Record protocol version, catalog ID, surface ID, message type, validation errors, action name, policy decision, and renderer version.
+
+## A2UI is not a design system replacement
+
+The agent chooses from components the client already knows how to render. The product team still owns accessibility, keyboard behavior, focus, localization, typography, responsive layout, destructive-action confirmation, and visual quality.
+
+Use a normal frontend when the screen is known at build time. A2UI earns its cost when the useful interface depends on the agent’s result and must travel across renderer or system boundaries.
+
+## Interview answer in 30 seconds
+
+> A2UI is the agent-to-renderer boundary. The agent streams declarative JSON envelopes that create a surface, define components from a negotiated catalog, update a separate data model, and eventually delete the surface. The client validates those messages and renders its own native widgets, so it does not execute arbitrary agent code. User interactions return as actions. Catalog negotiation, schema validation, data minimization, and server-side authorization are the real safety controls. A2UI 0.9.1 is the current production release; 1.0 is still a candidate, so I keep the version explicit.
+
+Next: learn [A2A discovery and task lifecycles](../a2a/) or compare [MCP, A2A, and A2UI](../).
+
+[^a2ui-spec]: The [A2UI v0.9.1 specification](https://a2ui.org/specification/v0.9.1-a2ui/) defines the current production surface, component, data-model, catalog, and action contracts.
+[^a2ui-transport]: The A2UI specification requires ordered, framed delivery and describes A2A, AG-UI, MCP, and other possible transports.
+[^a2ui-a2a]: The [A2UI A2A extension](https://a2ui.org/specification/v0.9.1-a2ui-extension-specification/) defines capability metadata and `application/a2ui+json` data parts for carrying A2UI messages over A2A.

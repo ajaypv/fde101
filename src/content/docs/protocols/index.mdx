@@ -1,0 +1,78 @@
+---
+title: The protocol map
+description: Choose MCP, A2A, or A2UI from the boundary that needs a shared contract.
+contentType: lesson
+level: Beginner
+minutes: 8
+topics: [MCP, A2A, A2UI, protocols, agents]
+lastVerified: 2026-08-15
+sidebar:
+  order: 1
+sources:
+  - title: Agent2Agent Protocol Specification 1.0.0
+    url: https://a2a-protocol.org/latest/specification
+    publisher: A2A Protocol Project
+    type: standard
+  - title: A2UI Protocol v0.9.1
+    url: https://a2ui.org/specification/v0.9.1-a2ui/
+    publisher: A2UI Project
+    type: standard
+  - title: Model Context Protocol architecture
+    url: https://modelcontextprotocol.io/specification/2026-07-28/architecture
+    publisher: Model Context Protocol
+    type: standard
+---
+
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
+
+<LessonMeta level="Beginner" minutes={8} verified="15 Aug 2026" kind="Protocol guide" />
+
+<Takeaway>MCP connects an AI application to capabilities, A2A lets one agent delegate work to another agent, and A2UI lets an agent describe a user interface that a client renders.</Takeaway>
+
+These protocols solve different boundaries. They can appear in one product without competing with one another.
+
+## Begin with the two parties
+
+| Protocol | The two sides | Shared contract | Reach for it when |
+| --- | --- | --- | --- |
+| MCP | AI host or client ↔ capability server | Tools, resources, prompts, initialization, and protocol messages | An application needs controlled access to data or actions |
+| A2A | A2A client ↔ remote agent | Agent discovery, messages, stateful tasks, artifacts, streaming, and authentication declarations | One agentic system delegates an outcome to another system |
+| A2UI | Agent or server ↔ UI renderer | Surfaces, allowed component catalogs, data binding, updates, and user actions | The response should become an interactive native interface rather than text |
+
+The shortest memory aid is:
+
+```text
+MCP  → “Which capability can my application call?”
+A2A  → “Which remote agent can own this task?”
+A2UI → “Which interface can the user see and operate?”
+```
+
+## One passenger-care request
+
+A passenger asks an airline assistant to review a disrupted flight and show the available options.
+
+<ConceptFlow steps={['Host receives the passenger request', 'A2A delegates policy review to a remote passenger-care agent', 'That agent uses MCP tools to read the flight and policy systems', 'The remote agent returns findings and an artifact', 'A2UI describes the options panel', 'The client renders approved native components', 'A human reviews any consequential action']} label="MCP, A2A, and A2UI in one product" />
+
+Each protocol stops at its own boundary:
+
+- The **A2A Agent Card** advertises the remote agent. It does not prove the agent deserves access to passenger data.
+- An **MCP tool definition** describes a capability. It does not authorize the model or caller to use it.
+- An **A2UI action** reports what the user selected. It does not approve a refund, booking, payment, or disclosure.
+
+Authentication, authorization, policy, audit records, and human approval remain application responsibilities.
+
+## Do not use a protocol where a function call is enough
+
+Use ordinary code when both sides live in one process and share one deployment. A protocol earns its cost when independently deployed systems need a stable contract, separate ownership, language neutrality, or trust-boundary controls.
+
+| Situation | Simpler choice |
+| --- | --- |
+| One Python service calls its own deterministic helper | A normal function |
+| A fixed workflow invokes an internal library | A typed application interface |
+| A frontend renders a UI your team already knows at build time | Normal frontend components |
+| An external agent must be discovered and tracked across a long task | A2A may earn its place |
+| An agent must send a portable interface to different renderers | A2UI may earn its place |
+
+Next: learn the [A2A task and Agent Card model](./a2a/) and the [A2UI surface and catalog model](./a2ui/).

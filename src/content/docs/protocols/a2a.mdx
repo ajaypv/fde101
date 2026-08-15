@@ -1,0 +1,144 @@
+---
+title: A2A — Agent Cards, tasks, and artifacts
+description: Follow discovery, authentication, messages, stateful tasks, parts, artifacts, and updates through one remote-agent delegation.
+contentType: lesson
+level: Intermediate
+minutes: 16
+topics: [A2A, Agent Card, tasks, artifacts, agent interoperability]
+lastVerified: 2026-08-15
+sidebar:
+  order: 2
+sources:
+  - title: Agent2Agent Protocol Specification 1.0.0
+    url: https://a2a-protocol.org/latest/specification
+    publisher: A2A Protocol Project
+    type: standard
+  - title: A2A key concepts
+    url: https://github.com/a2aproject/A2A/blob/main/docs/topics/key-concepts.md
+    publisher: A2A Protocol Project
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
+import agentCard from '../../../examples/protocols/a2a_agent_card.json?raw';
+
+<LessonMeta level="Intermediate" minutes={16} verified="15 Aug 2026" kind="Protocol lesson" />
+
+<Takeaway>A2A gives independently built agents a shared discovery and task contract. The client still has to establish trust, authenticate, authorize each operation, and validate every result.</Takeaway>
+
+Suppose an airline’s main assistant needs a separately operated passenger-care agent to check disruption benefits. The main assistant should not need the remote agent’s prompt, graph, memory, or tools. It needs a stable way to discover what the agent offers, send work, follow progress, and receive the result.
+
+That is the boundary A2A addresses.[^a2a-spec]
+
+## The seven objects to remember
+
+| Object | Plain meaning | Passenger-care example |
+| --- | --- | --- |
+| A2A client | The application or agent that starts the exchange | Airline assistant |
+| A2A server | The remote agentic system that receives the request | Passenger-care agent |
+| Agent Card | Public metadata for discovery and connection setup | Skills, interfaces, input modes, and login requirements |
+| Message | One communication turn with a role and one or more parts | “Check care for flight EX123” |
+| Task | A stateful unit of work with an ID and lifecycle | Policy review that may take several steps |
+| Part | One typed piece of content inside a message or artifact | Text, structured JSON, inline bytes, or a file URL |
+| Artifact | A concrete task output made of parts | Eligibility report and supporting policy references |
+
+`contextId` can group related tasks. It is not the task ID. “Review the disruption,” “recheck after the cause changes,” and “prepare a customer explanation” may be separate tasks in one context.
+
+## Agent Card: the discovery document
+
+An A2A server publishes an Agent Card at `/.well-known/agent-card.json`. The card describes identity, supported interfaces and protocol versions, capabilities, skills, media types, and authentication requirements.[^a2a-card]
+
+<Code code={agentCard} lang="json" title="src/examples/protocols/a2a_agent_card.json" />
+
+Read this card as a connection contract:
+
+1. **Identity:** `name`, `description`, provider, and implementation version tell the client what claims to be running.
+2. **Interfaces:** `supportedInterfaces` lists binding, endpoint, and A2A protocol version in preference order.
+3. **Capabilities:** streaming, push notifications, and authenticated extended-card support tell the client which optional paths exist.
+4. **Security:** `securitySchemes` and `securityRequirements` describe how the client must authenticate. Credentials travel through the binding’s headers or metadata, not inside the user’s message.
+5. **Skills:** each skill states a narrow capability, examples, tags, and supported input and output media types.
+
+The Agent Card is not a trust certificate. A client should verify the origin, TLS identity, expected operator, approved registry entry, and—when used—the card’s optional JWS signature. A valid signature proves integrity and signer possession; it does not prove the skill is safe, accurate, or authorized for this user.
+
+Public cards must not expose secrets or private tenant capabilities. A server can advertise `extendedAgentCard` and return additional information after authentication.
+
+## One request from discovery to artifact
+
+<ConceptFlow steps={['Fetch Agent Card', 'Select a supported interface and version', 'Acquire credentials outside A2A messages', 'Send a user-role Message with typed Parts', 'Receive a direct Message or a Task', 'Follow task status by response, stream, polling, subscription, or push', 'Read and validate the final Artifacts']} label="A2A request flow" />
+
+A direct answer may come back as a `Message`. Longer work returns a `Task`. Keep that distinction clear: a message is communication; an artifact is a durable deliverable attached to a task.
+
+```json title="Send a message with the HTTP+JSON binding"
+{
+  "message": {
+    "role": "ROLE_USER",
+    "messageId": "msg-1047",
+    "parts": [
+      {
+        "data": {
+          "flight": "EX123",
+          "question": "Which passenger-care options apply?"
+        },
+        "mediaType": "application/json"
+      }
+    ]
+  },
+  "configuration": {
+    "returnImmediately": true
+  }
+}
+```
+
+The exact endpoint and field casing depend on the selected binding. A2A 1.0 separates its canonical data model and abstract operations from JSON-RPC, gRPC, and HTTP+JSON bindings. Do not copy a request from one binding into another without checking the binding section of the specification.
+
+## The task lifecycle
+
+| State | What the client should do |
+| --- | --- |
+| `TASK_STATE_SUBMITTED` | Record the task ID; wait, subscribe, or poll according to the chosen interaction pattern |
+| `TASK_STATE_WORKING` | Display progress without treating status text as the final deliverable |
+| `TASK_STATE_INPUT_REQUIRED` | Ask the user or calling system for the missing fact, then send another message to the same task |
+| `TASK_STATE_AUTH_REQUIRED` | Complete the declared authentication step; never place credentials in ordinary message text |
+| `TASK_STATE_COMPLETED` | Validate and consume artifacts |
+| `TASK_STATE_FAILED` | Inspect the failure, retry only when policy classifies it as transient and safe |
+| `TASK_STATE_CANCELED` | Stop waiting and reconcile any external side effects |
+| `TASK_STATE_REJECTED` | Do not retry unchanged; the server declined the work |
+
+A terminal task cannot accept another message. Start a new task when the work truly continues after completion, failure, cancellation, or rejection.
+
+## Streaming and long-running work
+
+A2A supports blocking and immediate-return requests, task retrieval, task subscriptions, streaming updates, and push notifications. Choose from the user experience and failure model:
+
+| Pattern | Good fit | Failure concern |
+| --- | --- | --- |
+| Blocking response | Short, bounded work | Request timeout and wasted connection capacity |
+| Streaming | Live progress while the client stays connected | Reconnect and duplicate-event handling |
+| Polling | Simple clients and moderate task duration | Load, delayed updates, and polling storms |
+| Push notification | Long work and disconnected clients | Webhook authentication, SSRF, replay, and delivery retries |
+
+Status messages are not a reliable store for critical output. Fetch the task and its artifacts after reconnecting.
+
+## Production boundary
+
+An A2A implementation should make these checks visible in code and traces:
+
+1. Allow only approved Agent Card origins or registries.
+2. Pin or negotiate a supported A2A version and binding; do not silently lose required capabilities.
+3. Authenticate every request and authorize the exact task, context, tenant, and artifact.
+4. Validate part media types, sizes, filenames, URLs, and structured data before use.
+5. Block server-side request forgery when the remote agent returns file URLs or receives webhook URLs.
+6. Make message IDs and side-effecting operations idempotent where the application can retry.
+7. Trace task ID, context ID, remote agent identity, protocol version, state changes, artifact IDs, latency, and policy decisions.
+
+## Interview answer in 30 seconds
+
+> A2A is the agent-to-agent boundary. A remote agent publishes an Agent Card that describes its interfaces, protocol versions, skills, media types, capabilities, and authentication requirements. The client verifies and selects an approved interface, authenticates out of band, and sends a Message containing typed Parts. The server may return a direct Message or a stateful Task. Long tasks move through working, input-required, auth-required, and terminal states, and their concrete outputs arrive as Artifacts. The card enables discovery; it does not replace trust, authorization, output validation, idempotency, or audit controls.
+
+Next: see how [A2UI turns an agent response into a native interface](../a2ui/) or compare [MCP, A2A, and A2UI](../).
+
+[^a2a-spec]: The [A2A 1.0.0 specification](https://a2a-protocol.org/latest/specification) defines a canonical data model, abstract operations, and protocol bindings for interoperable remote agents.
+[^a2a-card]: The same specification registers `/.well-known/agent-card.json` and defines Agent Card discovery, supported interfaces, security declarations, optional signatures, skills, and authenticated extended cards.

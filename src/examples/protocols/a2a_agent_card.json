@@ -1,0 +1,52 @@
+{
+  "name": "Passenger Care Agent",
+  "description": "Checks disruption policy and prepares passenger-care options.",
+  "supportedInterfaces": [
+    {
+      "url": "https://agents.example.com/passenger-care/a2a",
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "provider": {
+    "organization": "Example Airline",
+    "url": "https://www.example.com"
+  },
+  "version": "1.0.0",
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "extendedAgentCard": true
+  },
+  "securitySchemes": {
+    "company-login": {
+      "openIdConnectSecurityScheme": {
+        "openIdConnectUrl": "https://login.example.com/.well-known/openid-configuration"
+      }
+    }
+  },
+  "securityRequirements": [
+    {
+      "schemes": {
+        "company-login": {
+          "list": ["openid", "passenger-care.read"]
+        }
+      }
+    }
+  ],
+  "defaultInputModes": ["text/plain", "application/json"],
+  "defaultOutputModes": ["text/plain", "application/json"],
+  "skills": [
+    {
+      "id": "check-disruption-care",
+      "name": "Check disruption care",
+      "description": "Evaluates hotel and meal eligibility from verified disruption facts.",
+      "tags": ["airline", "disruption", "hotel", "meal"],
+      "examples": [
+        "Check care options for flight EX123 on 2026-08-15."
+      ],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["text/plain", "application/json"]
+    }
+  ]
+}

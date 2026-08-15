@@ -12,8 +12,11 @@ This is the alphabetical reference behind the front-page field index. Each note 
 
 ## A–F
 
+- [A2A](./agent2agent-protocol/) — discovery and stateful task exchange between independently built agents.
+- [A2UI](./agent-to-ui-protocol/) — declarative interfaces streamed from agents to trusted renderers.
 - [Abstention](./abstention/) — choosing not to guess when evidence is insufficient.
 - [Agent](./agent/) — a model-driven loop that can choose actions and tools.
+- [Agent Card](./agent-card/) — A2A metadata for an agent's interfaces, skills, capabilities, and authentication requirements.
 - [Agent conflict](./agent-conflict/) — disagreement between specialist findings with different roles or evidence.
 - [Agentic RAG](./agentic-rag/) — retrieval whose path can change from model decisions and observations.
 - [Answer correctness](./answer-correctness/) — whether a response agrees with trusted truth or a reviewed reference.

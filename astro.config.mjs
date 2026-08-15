@@ -48,6 +48,7 @@ export default defineConfig({
 				{ label: 'Foundations', items: [{ autogenerate: { directory: 'foundations' } }] },
 				{ label: 'RAG', items: [{ autogenerate: { directory: 'rag' } }] },
 				{ label: 'Agent systems', items: [{ autogenerate: { directory: 'agents' } }] },
+				{ label: 'Protocols', items: [{ autogenerate: { directory: 'protocols' } }] },
 				{
 					label: 'Frameworks',
 					items: [
