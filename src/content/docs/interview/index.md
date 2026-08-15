@@ -43,17 +43,20 @@ Practice the full answers:
 
 ## LangChain and LangGraph
 
-1. When is a provider SDK simpler than LangChain?
-2. What information belongs in graph state?
+1. What is LangGraph, and when does it earn its place over plain Python?
+2. Explain graph state, nodes, edges, reducers, and partial updates.
 3. What is the difference between state, a checkpoint, a thread, and a store?
-4. Where would you place human approval in a graph?
+4. What happens when a node resumes after `interrupt()`?
 5. How do you retry a tool node without duplicating a side effect?
-6. Two specialist agents recommend opposite actions. Which one should the system trust?
-7. How does an MCP-connected application decide which tool may run?
+6. How do parallel branches merge updates, and when would you use `Send`?
+7. How do you stop and test a model-driven loop?
+8. Two specialist agents recommend opposite actions. Which one should the system trust?
+9. How does an MCP-connected application decide which tool may run?
 
 Practice the full answers:
 
 - [Agent or workflow—which should you use?](./agent-vs-workflow/)
+- [Eighteen production LangGraph interview questions](./langgraph-production-questions/)
 - [State versus memory](./langgraph-state-vs-memory/)
 - [Resolve agent disagreement](../agents/conflict-resolution/)
 - [How MCP-connected tool selection works](../agents/mcp-tool-selection/)

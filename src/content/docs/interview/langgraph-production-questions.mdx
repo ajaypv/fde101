@@ -1,0 +1,175 @@
+---
+title: LangGraph interview questions that test production judgment
+description: Practice state, reducers, persistence, interrupts, retries, parallel work, streaming, testing, and safe side effects with one support workflow.
+contentType: interview
+level: Intermediate
+minutes: 18
+topics: [LangGraph, interview, state, persistence, retries]
+lastVerified: 2026-08-15
+sidebar:
+  order: 3
+sources:
+  - title: LangGraph overview
+    url: https://docs.langchain.com/oss/python/langgraph/overview
+    publisher: LangChain
+    type: official-doc
+  - title: Graph API overview
+    url: https://docs.langchain.com/oss/python/langgraph/graph-api
+    publisher: LangChain
+    type: official-doc
+  - title: Persistence
+    url: https://docs.langchain.com/oss/python/langgraph/persistence
+    publisher: LangChain
+    type: official-doc
+  - title: Interrupts
+    url: https://docs.langchain.com/oss/python/langgraph/interrupts
+    publisher: LangChain
+    type: official-doc
+  - title: Fault tolerance
+    url: https://docs.langchain.com/oss/python/langgraph/fault-tolerance
+    publisher: LangChain
+    type: official-doc
+  - title: Test
+    url: https://docs.langchain.com/oss/python/langgraph/test
+    publisher: LangChain
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import paymentCode from '../../../examples/langgraph/approval_payment.py?raw';
+
+<LessonMeta level="Intermediate" minutes={18} verified="15 Aug 2026" />
+
+<Takeaway>LangGraph does not make a model smarter. It makes state, routing, pauses, retries, and stopping conditions visible enough to operate.</Takeaway>
+
+There is no reliable public ranking of LangGraph interview frequency. These questions cover the concepts in the current official API and the failure modes that reveal whether someone has operated a stateful workflow.
+
+## The picture to hold in your head
+
+```text
+State → Node → Partial state update → Reducer → Edge decision → Next node
+```
+
+For a support system:
+
+```text
+classify_question
+        ↓
+billing ─────→ billing_specialist
+technical ───→ technical_specialist
+        ↓
+review_answer
+        ↓
+END or bounded retry
+```
+
+State is the shared snapshot. Nodes do work and return updates. Reducers decide how each updated field combines with its current value. Edges choose what runs next.[^graph]
+
+## Eighteen questions worth practicing
+
+| # | Interview question | A strong answer should include |
+|---:|---|---|
+| 1 | What is LangGraph, and why use it? | A low-level orchestration runtime for long-running, stateful workflows; persistence, branching, loops, streaming, and human review |
+| 2 | LangChain versus LangGraph? | LangChain supplies model, tool, and agent abstractions; LangGraph controls stateful execution. LangGraph can run without LangChain |
+| 3 | Explain state, nodes, and edges. | State holds the snapshot; nodes perform work and return updates; edges choose the next node |
+| 4 | What is a reducer? | A per-field function that combines the current value with a node's update; the default replaces the old value |
+| 5 | Why return partial state updates? | A node normally changes only the fields it owns; reducers apply those updates to the accumulated state |
+| 6 | Conditional edge versus `Command`? | A conditional edge routes after a node; `Command` can combine a state update and a destination in one node return |
+| 7 | What is a checkpointer? | Persistence that saves thread-scoped state snapshots at execution steps |
+| 8 | Thread, checkpoint, and store? | A thread identifies one history; a checkpoint is one saved snapshot; a store holds application data across threads |
+| 9 | How does human review work? | `interrupt()` pauses through persistence; resume the same `thread_id` with `Command(resume=...)` |
+| 10 | What happens on resume? | The interrupted node starts from its beginning, so code before `interrupt()` runs again |
+| 11 | How do you retry a failed node? | Retry only classified transient failures; bound attempts and backoff; make repeated side effects safe |
+| 12 | How do you stop an infinite loop? | A terminal state, business budgets, tool/model budgets, escalation, and a `recursion_limit` backstop |
+| 13 | How do parallel branches execute? | Nodes in one super-step can run concurrently; reducers must combine simultaneous writes safely |
+| 14 | What is `Send` for? | Runtime-created fan-out, such as one worker per retrieved document, followed by reduction |
+| 15 | When should you use a subgraph? | A reusable workflow, specialist agent, or state boundary that can be tested and operated separately |
+| 16 | How do you implement memory? | Thread-scoped state through checkpoints; cross-thread application memory through a store |
+| 17 | How do you stream execution? | Choose the view: state `updates`, full `values`, model `messages`, `custom` progress, tasks, checkpoints, or debug data |
+| 18 | How do you test a graph? | Nodes, reducers, routes, partial paths, retries, interrupts, side effects, and complete trajectories |
+
+## Four scenario answers interviewers remember
+
+### 1. The payment succeeded, then the process crashed
+
+The recovery path may execute the node again. The payment call needs a stable idempotency key, such as the application's `payment_id`. The provider must return the first result when it sees that key again. A checkpoint records graph progress; it cannot undo an external charge.
+
+### 2. The side effect happens before approval
+
+This ordering is dangerous:
+
+```python
+charge_customer()
+approved = interrupt("Approve charge?")
+```
+
+On resume, the node restarts and calls `charge_customer()` again. Ask for approval first, then perform the charge in a separate node. Keep the charge idempotent as a second line of defense.[^interrupt]
+
+<Code code={paymentCode} lang="python" title="src/examples/langgraph/approval_payment.py" />
+
+### 3. Two parallel nodes write to the same list
+
+Without a suitable reducer, the writes conflict or replace one another. Define the merge rule in the state schema:
+
+```python
+import operator
+from typing import Annotated
+from typing_extensions import TypedDict
+
+class ResearchState(TypedDict):
+    findings: Annotated[list[str], operator.add]
+```
+
+The reducer is part of the data contract. `operator.add` preserves both lists, but it does not remove duplicates or guarantee a business-specific order.
+
+### 4. The model keeps choosing another tool
+
+Do not rely only on a high recursion limit. The current runtime limit counts super-steps and raises `GraphRecursionError` when exhausted.[^recursion] Add a smaller product budget, such as five tool rounds or a cost ceiling, route to a final-answer or escalation node as the budget approaches, and retain the runtime limit as a backstop.
+
+## Retry is not the same as correction
+
+| Failure | Response |
+|---|---|
+| Network interruption or upstream 5xx | Bounded `RetryPolicy` on the node |
+| Invalid model-generated tool arguments | Return structured failure so the model can correct within a loop budget |
+| Permission denial | Stop; a retry cannot grant access |
+| Payment or email may already have succeeded | Check idempotency key or remote result before repeating |
+| Unknown programming error | Bubble, trace, alert, and fix |
+
+`RetryPolicy` re-runs a node attempt. It should see only exceptions that are safe to retry. If a node catches every exception and converts it to a normal result, the policy has no failure to classify.[^fault]
+
+## A testing ladder
+
+1. **Node:** Given this state, does the node return the expected partial update?
+2. **Reducer:** Given concurrent updates, does the combined state match the contract?
+3. **Route:** Does every important state choose the intended edge or `Command` destination?
+4. **Pause:** Does the graph expose the expected interrupt and resume only on the same thread?
+5. **Failure:** Which exceptions retry, how many attempts occur, and what happens after exhaustion?
+6. **Trajectory:** Did the graph call the allowed tools in a valid order and stop within budget?
+7. **Side effect:** Does replay with the same idempotency key create exactly one external result?
+
+Compile a fresh graph and checkpointer for isolated tests. Test individual nodes, then partial paths, then the complete workflow.[^test]
+
+## When LangGraph is unnecessary
+
+Use a direct model call or plain Python for:
+
+```text
+input → model → output
+```
+
+LangGraph earns its place when execution must branch, loop, fan out, persist, pause, resume, recover, or expose its state transitions. A framework should follow the workflow's needs, not create them.
+
+## Thirty-second answer
+
+> LangGraph is a stateful orchestration runtime. I define typed state, nodes that return partial updates, reducers that merge those updates, and edges that control execution. A checkpointer saves thread-scoped snapshots for recovery and human review, while a store holds data across threads. I keep side effects idempotent because retries and interrupt resumes can execute node code again. I use LangGraph for branching, loops, durable execution, or approval—not for a simple model call.
+
+Continue with the concept notes on [state schemas](../../langgraph/state-schema/), [reducers](../../langgraph/reducers/), [persistence](../../langgraph/checkpoints-threads/), [interrupts](../../langgraph/interrupts-resume/), [retries](../../langgraph/retries-tool-failures/), and [`Send`](../../langgraph/send-parallel-fanout/).
+
+[^graph]: LangChain, [Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api).
+[^interrupt]: LangChain, [Interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts).
+[^recursion]: LangChain, [Graph API — recursion limit](https://docs.langchain.com/oss/python/langgraph/graph-api#recursion-limit).
+[^fault]: LangChain, [Fault tolerance](https://docs.langchain.com/oss/python/langgraph/fault-tolerance).
+[^test]: LangChain, [Test](https://docs.langchain.com/oss/python/langgraph/test).
