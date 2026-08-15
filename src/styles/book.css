@@ -19,7 +19,6 @@
 	--surface: #f5f5f2;
 	--ink: #111111;
 	--muted-ink: #5d5d5a;
-	--read-ink: #747474;
 	--rule: #cdcdca;
 	--rule-heavy: #111111;
 	--serif: "Source Serif 4 Variable", Georgia, "Times New Roman", serif;
@@ -43,7 +42,6 @@
 	--surface: #0f0f0f;
 	--ink: #f5f5f0;
 	--muted-ink: #aaa9a3;
-	--read-ink: #92928d;
 	--rule: #373737;
 	--rule-heavy: #f5f5f0;
 }
@@ -65,6 +63,9 @@
 body {
 	background: var(--paper);
 	color: var(--ink);
+	font-kerning: normal;
+	font-optical-sizing: auto;
+	text-rendering: optimizeLegibility;
 }
 
 header.header {
@@ -104,7 +105,11 @@ header.header {
 	font-family: var(--serif);
 	font-size: clamp(1.08rem, 1.45vw, 1.19rem);
 	font-variation-settings: "wght" 410;
-	line-height: 1.76;
+	line-height: 1.72;
+}
+
+.sl-markdown-content > :where(p, ul, ol, blockquote) {
+	max-width: 68ch;
 }
 
 h1#_top {
@@ -351,7 +356,7 @@ main > .content-panel:first-child:has(+ .content-panel .fde-home) {
 }
 
 .term-entry:visited {
-	color: var(--read-ink);
+	color: var(--ink);
 }
 
 .term-number,
@@ -377,34 +382,38 @@ main > .content-panel:first-child:has(+ .content-panel .fde-home) {
 
 .term-name {
 	font-family: var(--serif);
-	font-size: clamp(1.75rem, 2.7vw, 2.5rem);
-	font-variation-settings: "wght" 690;
+	font-size: clamp(1.7rem, 2.35vw, 2.25rem);
+	font-variation-settings: "wght" 650;
 	grid-column: 1 / -1;
 	grid-row: 2;
-	letter-spacing: -0.04em;
-	line-height: 0.98;
+	letter-spacing: -0.025em;
+	line-height: 1.07;
 	margin-top: 1rem;
+	text-wrap: balance;
 }
 
 .term-long-name {
 	font-family: var(--sans);
-	font-size: 0.72rem;
+	font-size: 0.74rem;
 	font-weight: 610;
 	grid-column: 1 / -1;
 	grid-row: 3;
 	letter-spacing: 0.025em;
+	line-height: 1.35;
 	margin-top: 0.38rem;
 	text-transform: uppercase;
 }
 
 .term-entry p {
 	font-family: var(--serif);
-	font-size: 0.98rem;
+	font-size: clamp(1rem, 0.2vw + 0.96rem, 1.06rem);
+	font-variation-settings: "wght" 425;
 	grid-column: 1 / -1;
 	grid-row: 4;
-	line-height: 1.48;
+	line-height: 1.58;
 	margin: 1rem 0 1.5rem;
-	max-width: 28ch;
+	max-width: 30ch;
+	text-wrap: pretty;
 }
 
 .term-action {
@@ -418,8 +427,9 @@ main > .content-panel:first-child:has(+ .content-panel .fde-home) {
 .term-entry:hover .term-name,
 .term-entry:focus-visible .term-name {
 	text-decoration: underline;
+	text-decoration-skip-ink: auto;
 	text-decoration-thickness: 1px;
-	text-underline-offset: 0.12em;
+	text-underline-offset: 0.16em;
 }
 
 .term-entry:focus-visible,

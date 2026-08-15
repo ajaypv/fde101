@@ -8,13 +8,13 @@ const terms = [
 	{
 		name: 'Retrieval-augmented generation',
 		short: 'RAG',
-		description: 'Retrieve external evidence, then generate an answer grounded in that evidence.',
+		description: 'Retrieve evidence from a known source, then ask the model to answer from it.',
 		category: 'Retrieval',
 		href: '/glossary/retrieval-augmented-generation/',
 	},
 	{
 		name: 'Agentic RAG',
-		description: 'Let model decisions change where, how, or whether another retrieval step runs.',
+		description: 'Let the model choose where to search, inspect what it found, and decide whether to search again.',
 		category: 'Retrieval',
 		href: '/glossary/agentic-rag/',
 	},
@@ -821,9 +821,12 @@ const terms = [
 		border: 0;
 		font-family: var(--serif);
 		font-size: clamp(1.65rem, 3.3vw, 2.5rem);
-		line-height: 1;
+		font-variation-settings: "wght" 650;
+		letter-spacing: -0.025em;
+		line-height: 1.05;
 		margin: 0.5rem 0 0;
 		padding: 0;
+		text-wrap: balance;
 	}
 
 	.reading-choice-actions {
@@ -872,8 +875,8 @@ const terms = [
 
 	.reading-choice-actions span {
 		font-family: var(--serif);
-		font-size: 0.95rem;
-		line-height: 1.2;
+		font-size: 1rem;
+		line-height: 1.35;
 	}
 
 	[data-reading-panel] {
