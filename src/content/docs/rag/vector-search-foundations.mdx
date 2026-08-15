@@ -1,0 +1,128 @@
+---
+title: Vector search, from cosine to HNSW
+description: Understand compatible embeddings, cosine similarity, exact search, approximate indexes, and the recall–latency trade-off.
+contentType: lesson
+level: Intermediate
+minutes: 18
+topics: [embeddings, cosine similarity, HNSW, vector search]
+lastVerified: 2026-08-15
+sidebar:
+  order: 4
+sources:
+  - title: Introduction to embeddings
+    url: https://docs.cohere.com/v1/docs/embeddings
+    publisher: Cohere
+    type: official-doc
+  - title: Efficient and robust approximate nearest neighbor search using HNSW
+    url: https://arxiv.org/abs/1603.09320
+    publisher: arXiv
+    type: paper
+  - title: Relevance in vector search
+    url: https://learn.microsoft.com/en-us/azure/search/vector-search-ranking
+    publisher: Microsoft
+    type: official-doc
+  - title: pgvector
+    url: https://github.com/pgvector/pgvector
+    publisher: pgvector
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import similarityCode from '../../../examples/rag/vector_similarity.py?raw';
+
+<LessonMeta level="Intermediate" minutes={18} verified="15 Aug 2026" />
+
+<Takeaway>An embedding is a learned representation, cosine is a geometric score, and HNSW is an approximate index. None of the three proves that a passage is relevant or true.</Takeaway>
+
+## Begin with three arrows
+
+Imagine that an embedding model produced these two-dimensional vectors:
+
+```text
+question                 [1.0, 0.0]  →
+password-reset passage   [0.9, 0.1]  ↗
+office-map passage       [0.0, 1.0]  ↑
+```
+
+The password passage points in almost the same direction as the question. Cosine similarity expresses that geometric relationship as a normalized dot product:
+
+```text
+cosine(q, d) = (q · d) / (length(q) × length(d))
+```
+
+For the tiny vectors above, the password passage scores about `0.994` and the office map scores `0.000`.
+
+This does **not** mean “99.4% relevant.” Cosine is neither a probability nor a truth score. A corpus always has a nearest item, even when every item is a bad answer. Calibrate thresholds and abstention with negative questions from the real corpus.
+
+<Code code={similarityCode} lang="python" title="src/examples/rag/vector_similarity.py" />
+
+The example performs exact search: it scores every eligible document and sorts the results. That makes the calculation easy to inspect.
+
+## Embeddings are learned coordinates
+
+“Meaning stored as numbers” is a useful first picture, but it is too absolute. An embedding model learns a representation that preserves relationships useful to its training objective. It can still handle a customer's acronyms, languages, tables, or identifiers poorly.
+
+Keep this metadata beside every vector index:
+
+```text
+provider + model + version + dimensions
++ preprocessing + input mode + distance function
+```
+
+The query and documents must occupy a **compatible embedding space**. Equal dimensions are not enough: two unrelated models can assign entirely different meanings to coordinate 17. The safest model migration is to build a new index, re-embed the corpus, evaluate both indexes, and then switch traffic.
+
+Some models intentionally use different but compatible modes for the two sides. Cohere, for example, documents `search_query` for questions and `search_document` for indexed passages.[^cohere] “Use one compatible pinned model configuration” is therefore more accurate than “make the two API calls identical.”
+
+## Exact search or approximate search?
+
+| Method | What it examines | Advantage | Cost |
+| --- | --- | --- | --- |
+| Exact k-nearest neighbors | Every eligible vector | Returns the true nearest results for that metric | Work grows with the eligible corpus |
+| Approximate nearest neighbors, or ANN | A promising subset of the index | Often much lower latency at scale | Can miss an exact neighbor and needs an index |
+
+Exact search is not only for small systems. It is also the reference used to measure whether an approximate index is losing too much.
+
+```text
+Exact top 5:  A  B  C  D  E
+HNSW top 5:   A  B  X  D  Y
+
+ANN recall@5 = 3 shared IDs / 5 exact IDs = 0.60
+```
+
+This **ANN recall** measures fidelity to exact vector search. It is different from RAG [Recall@k](../../glossary/recall-at-k/), which uses human relevance labels. An index can match exact vector search perfectly while the embedding model retrieves the wrong evidence.
+
+## HNSW is a graph with express lanes
+
+[HNSW](../../glossary/hnsw/) connects nearby vectors in layers. Sparse upper layers act like express roads across the space; dense lower layers refine the search inside one neighborhood. The original paper describes logarithmic scaling behavior from this hierarchy, not a universal runtime guarantee.[^hnsw]
+
+Three common tuning ideas are:
+
+| Conceptual knob | When increased | Main trade-off |
+| --- | --- | --- |
+| Neighbors per node, often `M` | Builds a denser graph | More memory and build work; often better reachability |
+| Construction effort, often `ef_construction` | Explores more candidates while building | Slower indexing; often better graph quality |
+| Search effort, often `ef_search` | Explores more candidates per query | Higher latency; often better ANN recall |
+
+Names and exact behavior vary by product. pgvector exposes these HNSW controls and recommends comparing approximate results with exact search to monitor recall.[^pgvector]
+
+Metadata filters belong in the benchmark. A selective tenant or permission filter can make the eligible set tiny, change graph traversal, or force the engine to explore more candidates. Test real filter shapes, not only an unfiltered public benchmark.
+
+## The experiment that matters
+
+For each representative query, record:
+
+1. human-labeled relevant passages;
+2. exact top `k` vector results;
+3. approximate top `k` results;
+4. end-to-end and retrieval p50/p95 latency;
+5. memory, index size, build time, and filter shape.
+
+Then choose an index configuration at the quality target. “A few hundred vector visits” and “logarithmic search” are possible intuitions, not promises for a new corpus.
+
+Next: [choose a retrieval store](../choosing-retrieval-storage/) or [evaluate retrieval and answers](../../evals/).
+
+[^cohere]: Cohere, [introduction to embeddings](https://docs.cohere.com/v1/docs/embeddings), documents task-specific query and document input types.
+[^hnsw]: Malkov and Yashunin, [“Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs”](https://arxiv.org/abs/1603.09320).
+[^pgvector]: [pgvector](https://github.com/pgvector/pgvector) documents exact search, HNSW, IVFFlat, and their tuning trade-offs.

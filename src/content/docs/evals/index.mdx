@@ -71,6 +71,8 @@ A final answer can look good even when retrieval was weak, and strong retrieval 
 | --- | --- | --- | --- |
 | Retrieval | Precision@k | Top `k` passages vs relevance labels | How clean is the retrieved list? |
 | Retrieval | Recall@k | Top `k` passages vs all known relevant passages | Did retrieval find the needed evidence? |
+| Retrieval | MRR | Reciprocal of the first relevant rank, averaged across queries | Did at least one useful result appear early? |
+| ANN index | ANN recall@k | Approximate top `k` IDs vs exact top `k` IDs | How closely does the fast index match exact vector search? |
 | Generation | Faithfulness or groundedness | Answer claims vs retrieved context | Does the supplied evidence support each claim? |
 | Generation | Answer relevance | Answer vs user question | Did the response address what was asked? |
 | Generation | Correctness | Answer vs trusted reference | Does the answer agree with known truth? |
@@ -103,6 +105,8 @@ The following provider-neutral shape computes retrieval metrics first and inject
 <Code code={answerMetricsCode} lang="python" title="src/examples/evals/rag_answer_metrics.py" />
 
 Always report `k`, the relevance definition, dataset size, label method, aggregation method, and evaluator version. “Precision improved” is incomplete without them.
+
+[MRR](../glossary/mrr/) ignores relevant items after the first, so it does not replace Recall@k for multi-passage answers. **ANN recall@k** is a different denominator again: it measures overlap with exact vector neighbors, not human relevance. High ANN recall can faithfully reproduce a poor embedding ranking.
 
 ## Evaluate each stage
 

@@ -24,6 +24,22 @@ Prefer boundaries that preserve meaning:
 - code signatures with their explanation;
 - document identity and access metadata on every chunk.
 
+## Overlap reduces one risk and creates another
+
+```text
+Source:      Returns are allowed for 30 days | except final-sale items.
+
+No overlap: [Returns are allowed for 30 days] [except final-sale items]
+Risk:        the rule is retrieved without its exception
+
+Large overlap:
+             [Returns are allowed ... except final-sale items]
+             [allowed ... except final-sale items]
+Risk:        near-duplicates occupy two result slots
+```
+
+Overlap cannot guarantee that an idea stays intact. Prefer structure-aware boundaries first, then add and tune enough overlap to improve measured retrieval without flooding the context with duplicates.
+
 ## Tune three variables together
 
 | Variable | Too low | Too high |

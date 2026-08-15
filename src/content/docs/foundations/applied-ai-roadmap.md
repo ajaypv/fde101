@@ -17,6 +17,18 @@ sources:
     url: https://developers.openai.com/api/docs/guides/model-optimization
     publisher: OpenAI
     type: official-doc
+  - title: FastAPI tutorial
+    url: https://fastapi.tiangolo.com/tutorial/
+    publisher: FastAPI
+    type: official-doc
+  - title: LangGraph overview
+    url: https://docs.langchain.com/oss/python/langgraph/overview
+    publisher: LangChain
+    type: official-doc
+  - title: What is Terraform
+    url: https://developer.hashicorp.com/terraform/intro
+    publisher: HashiCorp
+    type: official-doc
 ---
 
 You do not need to train a foundation model before you can build useful AI systems. An applied AI engineer connects models to software, data, tools, tests, and operations. Training models from scratch is a valuable but separate specialization.
@@ -41,6 +53,20 @@ Use this rule instead:
 | Training from scratch | The general model and its capabilities | Model research or platform work at large scale | A fast application iteration loop |
 
 Anthropic defines context engineering as curating the full set of tokens used for inference—system instructions, tools, retrieved data, message history, and other runtime information—not merely polishing a prompt.[^context]
+
+## Learn capabilities, not a shopping list
+
+| Technology | Capability it can teach | Reach for it when |
+| --- | --- | --- |
+| Python | Typed application logic, async I/O, tests, data handling | You need a service or pipeline you can inspect and test |
+| FastAPI | HTTP routes, request validation, dependency injection, auth, streaming | The AI feature needs a Python API boundary |
+| LangChain | Common interfaces and integrations for models, messages, tools, and retrieval | Its abstraction removes repeated integration work |
+| LangGraph | Explicit state, branches, persistence, resume, and human approval | A workflow must survive or adapt across several steps |
+| Langfuse **or** LangSmith | Traces, datasets, evaluation, and production feedback | A team needs reproducible failures and release evidence |
+| Terraform | Versioned, reviewable infrastructure changes | Environments and managed services must be reproduced safely |
+| pgvector, Pinecone, or Weaviate | Vector retrieval plus different storage and operating models | Measured corpus, filtering, latency, and ownership needs justify the choice |
+
+You do not need every row in one project. A provider SDK may be simpler than LangChain; ordinary functions may be clearer than LangGraph; existing telemetry may remove the need for a new LLMOps vendor. [Choose retrieval storage](../../rag/choosing-retrieval-storage/) from evidence, not a brand checklist.
 
 ## A practical learning order
 
@@ -95,6 +121,18 @@ It is a poor store for a policy that changes weekly. Put changing facts in a gov
 
 Learn tensors, gradients, attention, and optimization when you want deeper model intuition. Go further into PyTorch, GPUs, distributed training, and research papers for model-training or ML-platform roles. Do not use that path as a gate before building and evaluating an applied system.
 
+## Turn a target role into a measured gap
+
+Collect current job descriptions from the role, location, and company type you are targeting. For every claimed requirement, retain the source posting and record:
+
+```text
+problem and user → required capability → evidence you already have → missing proof
+```
+
+An AI assistant can group the rows and draft a gap analysis, but it should cite the underlying descriptions. Do not let it manufacture salary, hiring-timeline, or interview-probability claims.
+
+Choose one real micro-problem from a target team's domain and build the smallest project that closes a high-value gap. The [project briefs](../../projects/) show how routing, caching, regression CI, failure forensics, and documentation drift can become portfolio evidence.
+
 ## The portfolio test
 
 A strong project should let another engineer answer these questions:
@@ -107,6 +145,8 @@ A strong project should let another engineer answer these questions:
 6. Which eval gates a release?
 7. What do latency and cost look like at the expected load?
 8. Can someone trace and reproduce a bad result?
+
+Also require one documented failure and its measured fix. A polished happy path proves less than a reproducible before-and-after experiment.
 
 Next: build [RAG end to end](../../rag/), study [agent systems](../../agents/), and make [evaluation](../../evals/) part of both.
 

@@ -36,4 +36,6 @@ Calling all four “memory” hides important lifecycle and security decisions.
 
 Explain that persistence requires product choices: retention, encryption, tenant isolation, deletion, and what may be used in future threads. Checkpointing execution does not grant permission to retain everything indefinitely.
 
+A message list is one possible part of short-term application memory, not proof that a model autonomously remembers. For the complete lifecycle comparison, read [message history is not durable memory](../../agents/message-history-and-memory/).
+
 [^persistence]: [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence), official documentation.

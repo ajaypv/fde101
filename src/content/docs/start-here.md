@@ -19,10 +19,15 @@ This is a reference book, not a course you must finish in order. Start with a cu
 | Understand the vocabulary | [LLM foundations](../foundations/llms/) | [Glossary](../glossary/) |
 | Build a grounded assistant | [RAG, end to end](../rag/) | [Chunking](../rag/chunking/) |
 | Move RAG from demo to production | [Production retrieval](../rag/production-retrieval/) | [Evaluation](../evals/) |
+| Understand vector search at scale | [Cosine to HNSW](../rag/vector-search-foundations/) | [Choosing retrieval storage](../rag/choosing-retrieval-storage/) |
 | Build a bounded agent | [Agent systems without chaos](../agents/) | [LangGraph](../langgraph/) |
 | Build a stateful workflow | [LangGraph](../langgraph/) | [State vs memory](../interview/langgraph-state-vs-memory/) |
+| Separate context from memory | [Message history and memory](../agents/message-history-and-memory/) | [State vs memory](../interview/langgraph-state-vs-memory/) |
 | Follow an applied AI roadmap | [Applied AI engineering roadmap](../foundations/applied-ai-roadmap/) | [Context engineering](../glossary/context-engineering/) |
 | Prove a system works | [Evaluation](../evals/) | [Production checklist](../field-guide/production-rag-checklist/) |
+| Operate and debug a live system | [LLMOps](../llmops/) | [Semantic caching](../llmops/semantic-caching/) |
+| Protect tools from injected content | [Prompt injection](../security/prompt-injection/) | [Agent systems](../agents/) |
+| Build a portfolio project | [Projects that prove engineering](../projects/) | [Production checklist](../field-guide/production-rag-checklist/) |
 | Prepare for an interview | [Interview room](../interview/) | [RAG debugging](../interview/rag-debugging/) |
 
 ## How each chapter works

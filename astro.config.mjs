@@ -56,6 +56,9 @@ export default defineConfig({
 					],
 				},
 				{ label: 'Evaluation', items: [{ autogenerate: { directory: 'evals' } }] },
+				{ label: 'LLMOps', items: [{ autogenerate: { directory: 'llmops' } }] },
+				{ label: 'Security', items: [{ autogenerate: { directory: 'security' } }] },
+				{ label: 'Build projects', items: [{ autogenerate: { directory: 'projects' } }] },
 				{ label: 'FDE field guide', items: [{ autogenerate: { directory: 'field-guide' } }] },
 				{
 					label: 'Interview room',

@@ -19,6 +19,7 @@ Use this before a pilot, design review, or production handoff. A checked box sho
 - [ ] Document and chunk metadata retain tenant and permission boundaries.
 - [ ] Retrieved content is authorized for the requesting user.
 - [ ] Sensitive data handling and retention are documented.
+- [ ] Embedding model, version, dimensions, input modes, and distance function are pinned with the index.
 
 ## Retrieval
 
@@ -34,6 +35,8 @@ Use this before a pilot, design review, or production handoff. A checked box sho
 - [ ] Claims that affect user decisions require source support.
 - [ ] Citations resolve to content the user can access.
 - [ ] Prompt injection in retrieved content is treated as untrusted input.
+- [ ] Authorization and external-sharing rules are enforced outside the model.
+- [ ] Consequential tool calls show exact arguments for approval where required.
 - [ ] Model and prompt versions are recorded with evaluation results.
 
 ## Reliability and operations
@@ -43,6 +46,8 @@ Use this before a pilot, design review, or production handoff. A checked box sho
 - [ ] Latency, cost, error, and quality signals are observable per stage.
 - [ ] A safe degraded path exists when retrieval or the model is unavailable.
 - [ ] An owner can reproduce a bad answer from request traces.
+- [ ] Semantic-cache entries, if any, include tenant, permission, prompt/model, and knowledge versions.
+- [ ] Cache tests measure false hits, stale hits, and cross-scope hits—not only savings.
 
 ## Customer handoff
 

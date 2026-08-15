@@ -1,0 +1,101 @@
+---
+title: Semantic caching without serving the wrong answer
+description: Reuse stable responses only with tested similarity, strict scope, freshness controls, and false-hit evaluation.
+contentType: lesson
+level: Intermediate
+minutes: 13
+topics: [semantic cache, latency, cost, safety]
+lastVerified: 2026-08-15
+sidebar:
+  order: 2
+sources:
+  - title: Semantic cache
+    url: https://redis.io/docs/latest/develop/use-cases/semantic-cache/
+    publisher: Redis
+    type: official-doc
+  - title: Semantic caching guidance for agents
+    url: https://redis.io/docs/latest/integrate/google-adk/semantic-caching/
+    publisher: Redis
+    type: official-doc
+  - title: Semantic cache lookup policy
+    url: https://learn.microsoft.com/en-us/azure/api-management/llm-semantic-cache-lookup-policy
+    publisher: Microsoft
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import cacheCode from '../../../examples/llmops/semantic_cache.py?raw';
+
+<LessonMeta level="Intermediate" minutes={13} verified="15 Aug 2026" />
+
+<Takeaway>A semantic cache saves a previous answer for a nearby question. That can reduce work, but a false hit can confidently return the wrong user's stale answer.</Takeaway>
+
+## First, name the cache
+
+| Cache | Match | What happens on a hit |
+| --- | --- | --- |
+| Exact response cache | Identical governed key | Return the stored answer |
+| Provider prompt cache | Identical prompt prefix | Reuse provider computation, then generate a new answer |
+| Semantic response cache | Nearby query embedding | Return a previously generated answer |
+
+Semantic response caching makes the strongest assumption: “these two questions can share one answer.” Similarity alone does not prove that.
+
+```text
+“Can I return order 1042?”
+“Can I cancel order 1042?”
+```
+
+The wording and vectors may be close, but the allowed action, policy, and live order state can differ.
+
+## A narrow safe starting point
+
+Start with stable, read-only, non-personal FAQ routes. Avoid semantic response reuse for:
+
+- user- or tenant-specific answers;
+- rapidly changing facts;
+- multi-turn questions that depend on hidden history;
+- authorization decisions;
+- tool calls or side effects such as sending an email;
+- answers whose source or policy version is unknown.
+
+Redis's agent guidance specifically warns about later conversational turns, cached errors or function calls, and non-idempotent operations.[^redis-agent]
+
+## Scope is part of the key
+
+```text
+tenant + authorization scope + route + locale
++ policy version + prompt version + model version
++ knowledge/index version + time window
+```
+
+Two users asking the same sentence must not share an answer when their permissions or underlying data differ. Azure's semantic-cache policy supports varying entries by identity-related dimensions for this reason.[^azure]
+
+<Code code={cacheCode} lang="python" title="src/examples/llmops/semantic_cache.py" />
+
+The code is intentionally conservative. Production code also needs encrypted storage, deletion, concurrency control, invalidation events, and audit records.
+
+## Thresholds are local
+
+A threshold such as `0.92` has no portable meaning across embedding models, distance functions, and corpora. Some APIs return similarity where higher is better; others return distance where lower is better.
+
+Build labeled pairs:
+
+```text
+safe reuse       “How do I install VPN?” / “Steps to set up VPN”
+false-hit trap   “Can I return this?” / “Can enterprise users return this?”
+stale-hit trap   old policy answer after a source revision
+isolation trap   same question from two permission scopes
+```
+
+Measure hit rate, **false-hit rate**, stale-hit rate, cross-scope hits, saved model calls, and added cache-lookup latency. The useful operating point is the one that saves work while remaining below the product's error budget.
+
+## Invalidation is part of correctness
+
+Expire or invalidate entries when a source, prompt, model, policy, locale, or authorization rule changes. A longer TTL may increase hits and stale answers at the same time.
+
+Begin with an exact cache. Add semantic matching only after repeated traffic shows a real opportunity and labeled pairs show that the reuse decision is safe.
+
+[^redis-agent]: Redis, [semantic caching guidance for agents](https://redis.io/docs/latest/integrate/google-adk/semantic-caching/).
+[^azure]: Microsoft, [semantic cache lookup policy](https://learn.microsoft.com/en-us/azure/api-management/llm-semantic-cache-lookup-policy), documents identity- and request-based cache variation.

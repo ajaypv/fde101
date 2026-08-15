@@ -18,6 +18,8 @@ Good answers reveal how you reason. Define the term, give a tiny example, name a
 3. When would keyword search beat vector search?
 4. How do you enforce document permissions during retrieval?
 5. Why can adding more chunks make an answer worse?
+6. How would you compare exact search with HNSW, and what does ANN recall@k measure?
+7. When would you keep vectors in pgvector instead of adding a dedicated vector database?
 
 Practice the full answers:
 
@@ -46,6 +48,16 @@ Practice the full answers:
 5. Which metrics become release gates, and why?
 
 Practice: [How do you evaluate a RAG system?](./evaluate-rag-system/)
+
+## LLMOps and security
+
+1. What would you record in a trace so a bad answer can be reproduced?
+2. What is the difference between a trace, a metric, an evaluation, and an audit record?
+3. How would you gate a prompt or model change in CI?
+4. When is semantic response caching unsafe?
+5. An email contains an instruction to exfiltrate a confidential file. Which controls stop the action even if the model follows the instruction?
+
+Practice: [LLMOps](../llmops/), [semantic caching](../llmops/semantic-caching/), and [prompt-injection guardrails](../security/prompt-injection/).
 
 ## FDE judgment
 

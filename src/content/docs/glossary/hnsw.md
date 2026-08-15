@@ -8,6 +8,15 @@ topics: [HNSW, vector search, retrieval]
 lastVerified: 2026-08-15
 sidebar:
   order: 6
+sources:
+  - title: Efficient and robust approximate nearest neighbor search using HNSW
+    url: https://arxiv.org/abs/1603.09320
+    publisher: arXiv
+    type: paper
+  - title: pgvector
+    url: https://github.com/pgvector/pgvector
+    publisher: pgvector
+    type: official-doc
 ---
 
 **HNSW** means **Hierarchical Navigable Small World**. It builds layers of links between nearby vectors so a search can move quickly from a broad neighborhood to close candidates.
@@ -18,10 +27,13 @@ Instead of comparing a query with every one of a million embeddings, HNSW follow
 
 ## What to tune
 
-- More search effort usually improves recall and increases latency.
-- A denser index can improve search quality and increase memory and build cost.
+- More search effort—often `ef_search`—usually improves ANN recall and increases latency.
+- More neighbors per node—often `M`—can improve graph reachability and increase memory.
+- More construction effort—often `ef_construction`—can improve index quality and increase build time.
 - Metadata filtering can change the effective search space.
+
+The names and behavior are implementation-specific. HNSW often scales much better than a full scan, but “always O(log n)” and “visits a few hundred vectors” are not production guarantees.
 
 ## FDE note
 
-HNSW is an indexing algorithm, not a vector database. Measure the latency–recall tradeoff on the customer's corpus instead of selecting defaults from a generic benchmark.
+HNSW is an approximate indexing algorithm, not a vector database. Compare its top `k` with exact search, then measure ANN recall, latency, memory, and filtered queries on the customer's corpus. See [vector search, from cosine to HNSW](../../rag/vector-search-foundations/).

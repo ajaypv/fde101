@@ -1,0 +1,140 @@
+---
+title: LLMOps is the evidence around the model
+description: Trace requests, evaluate versions, gate releases, monitor production, and turn failures into regression cases.
+contentType: lesson
+level: Intermediate
+minutes: 20
+topics: [LLMOps, observability, tracing, regression evaluation]
+lastVerified: 2026-08-15
+sidebar:
+  order: 1
+sources:
+  - title: Generative AI semantic conventions
+    url: https://github.com/open-telemetry/semantic-conventions-genai
+    publisher: OpenTelemetry
+    type: standard
+  - title: Langfuse documentation
+    url: https://langfuse.com/docs
+    publisher: Langfuse
+    type: official-doc
+  - title: LangSmith observability concepts
+    url: https://docs.langchain.com/langsmith/observability-concepts
+    publisher: LangChain
+    type: official-doc
+  - title: LangSmith evaluation concepts
+    url: https://docs.langchain.com/langsmith/evaluation-concepts
+    publisher: LangChain
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import gateCode from '../../../examples/llmops/regression_gate.py?raw';
+
+<LessonMeta level="Intermediate" minutes={20} verified="15 Aug 2026" />
+
+<Takeaway>Tracing tells you what happened. Evaluation tells you whether it was good. Release gates and production monitoring turn both into operating decisions.</Takeaway>
+
+## One request, not one model call
+
+```text
+trace 8f31: “Why did payment fail yesterday?”       1,462 ms
+├─ authorize user                                      8 ms
+├─ rewrite query                                      76 ms
+├─ BM25 retrieval                                     94 ms
+├─ vector retrieval                                  121 ms
+├─ rerank                                            188 ms
+├─ assemble 4 passages                                 6 ms
+├─ model call                        1,240 tokens     951 ms
+└─ citation and policy validation                     18 ms
+```
+
+A **trace** represents the request. Each timed operation is a **span**. Without this tree, a slow answer looks like “the LLM was slow” even when a retrying retriever consumed half the latency.
+
+## Keep four evidence types separate
+
+| Evidence | Main question | Example |
+| --- | --- | --- |
+| Trace | What happened in this request? | Exact query, retrieved IDs, tool calls, durations |
+| Metric | How does the system behave over time? | p95 latency, error rate, token use, cache hit rate |
+| Evaluation | Was the behavior acceptable? | Recall@5, groundedness rubric, task success |
+| Audit record | Who attempted or approved a consequential action? | User, policy decision, arguments, timestamp |
+
+An observability platform can calculate latency and token counts from telemetry. It cannot infer “quality” without a label, rubric, evaluator, or user signal.
+
+## Version enough to reproduce a failure
+
+For each trace and evaluation run, retain safe identifiers for:
+
+```text
+code commit             prompt and tool-schema version
+model and parameters    embedding model and index version
+retriever/reranker      dataset and evaluator version
+tenant and route        request, trace, and session IDs
+```
+
+Store the exact final context or its governed reference when policy permits. Redact credentials, personal data, and confidential document text before telemetry leaves the application boundary. “Log every prompt” is not a safe default.
+
+OpenTelemetry now maintains generative-AI conventions in a separate project that extends the core semantic conventions, and the schema continues to evolve.[^otel] Keep your application's internal event model stable and map it to an external schema at the exporter boundary.
+
+## Offline and online evaluation form a loop
+
+```text
+versioned cases → local/CI experiment → release gate
+       ↑                                  ↓
+reviewed failure ← production trace ← monitoring
+```
+
+- **Offline evaluation** runs a candidate prompt, model, or retriever against a versioned dataset before release.
+- **Online evaluation** samples or scores production traces after release.
+- A reviewed production failure becomes a new offline regression case.
+
+LangSmith documents both modes and the production-failure feedback loop.[^langsmith-eval]
+
+## A golden set is not perfect truth
+
+A useful case records the behavior that matters:
+
+```yaml
+id: invoice-tenant-boundary-07
+question: Can customer A read customer B's invoice?
+expected_behavior: deny
+forbidden_tools: [get_invoice]
+tags: [authorization, adversarial]
+```
+
+Include normal, edge, unanswerable, exact-identifier, permission, and prompt-injection cases. Use deterministic assertions for deterministic requirements and calibrated graders for open-ended answers.
+
+<Code code={gateCode} lang="python" title="src/examples/llmops/regression_gate.py" />
+
+The thresholds in this code are examples. Set them from product risk, the current baseline, and an agreed latency/cost budget. Inspect every severe failure: a good average cannot excuse one cross-tenant leak.
+
+## What to monitor
+
+| Group | Useful signals |
+| --- | --- |
+| Quality | task success, recall@k, faithfulness, correctness, abstention, feedback |
+| Reliability | request errors, timeouts, retries, tool failures, denied calls |
+| Performance | end-to-end and per-stage p50, p95, and p99 latency |
+| Cost | input, output, and cached tokens; retrieval/reranking/model cost per successful task |
+| Safety | injection attempts, unauthorized calls, policy denials, isolation failures |
+
+Segment important metrics by route, tenant class, language, source type, and release. A global average can hide a broken customer corpus.
+
+## Langfuse, LangSmith, or your existing stack?
+
+| Option | Useful when | Remember |
+| --- | --- | --- |
+| Langfuse | Open-source/self-hostable tracing, prompt management, datasets, and experiments fit the team | Confirm deployment, retention, and redaction requirements |
+| LangSmith | LangChain/LangGraph tracing and offline/online evaluation are central | It also works outside LangChain, but the integration is especially direct there |
+| OpenTelemetry + existing backend | The organization already operates a telemetry standard and wants minimal new tooling | You still need an evaluation dataset, graders, and review workflow |
+
+Langfuse and LangSmith overlap. Installing both is not a maturity requirement; choose the smallest toolchain that makes a failure reproducible and a release decision defensible.[^langfuse][^langsmith-observe]
+
+Next: design [semantic caching](./semantic-caching/) or review the [production RAG checklist](../field-guide/production-rag-checklist/).
+
+[^otel]: OpenTelemetry, [GenAI Semantic Conventions](https://github.com/open-telemetry/semantic-conventions-genai), covers spans, metrics, and events in a separate extension project.
+[^langfuse]: Langfuse, [documentation](https://langfuse.com/docs), covers tracing, prompt management, evaluation, datasets, and experiments.
+[^langsmith-observe]: LangChain, [LangSmith observability concepts](https://docs.langchain.com/langsmith/observability-concepts), defines projects, traces, runs/spans, threads, tags, and metadata.
+[^langsmith-eval]: LangChain, [LangSmith evaluation concepts](https://docs.langchain.com/langsmith/evaluation-concepts), distinguishes offline experiments from online evaluation on production traces.
