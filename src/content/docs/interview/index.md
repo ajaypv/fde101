@@ -13,19 +13,30 @@ Good answers reveal how you reason. Define the term, give a tiny example, name a
 
 ## RAG
 
-1. Walk through a RAG request from user question to cited answer.
-2. Retrieval returns related documents but not the answer-bearing passage. How do you debug it?
-3. When would keyword search beat vector search?
-4. How do you enforce document permissions during retrieval?
-5. Why can adding more chunks make an answer worse?
-6. How would you compare exact search with HNSW, and what does ANN recall@k measure?
-7. When would you keep vectors in pgvector instead of adding a dedicated vector database?
-8. When would you use vector search, graph traversal, or both for candidate discovery?
-9. Does retrieving from several sources automatically require agentic RAG?
+There is no trustworthy public ranking of interview frequency. These questions repeatedly test whether a candidate can move from a RAG demo to an operated system.
+
+| # | Interview question | A strong answer should cover |
+| --- | --- | --- |
+| 1 | Walk me through a production RAG pipeline end to end. | Ingestion, parsing, chunking, indexing, authorization, retrieval, reranking, context assembly, generation, citations, and tracing |
+| 2 | Where does RAG quality break? | Parsing, tables, chunk boundaries, stale data, permissions, query mismatch, candidate cutoff, reranking, packing, and generation |
+| 3 | How do you evaluate a RAG system? | Retrieval and generation separately, followed by end-to-end task success |
+| 4 | Explain Recall@k, Precision@k, and MRR. | Formulas, explicit denominators, and one tiny ranked-list example |
+| 5 | How would you choose a chunking strategy? | Answer units, document structure, overlap, metadata, parent-child retrieval, and labeled evaluations |
+| 6 | Why use hybrid search instead of only vector search? | Keyword search protects exact identifiers; vectors find paraphrases; fusion combines their candidate lists |
+| 7 | What is reranking, and why use it? | Broad retrieval seeks recall; a stronger scorer improves the final order of a small candidate set |
+| 8 | How do you prevent unsupported answers? | Evidence requirements, claim-level citations, thresholds, validation, and abstention |
+| 9 | How do you secure multi-tenant RAG? | Authorization during retrieval, tenant filters, ACLs, audit records, and leakage tests |
+| 10 | How do you process updates and deletions? | Stable IDs, versions, incremental indexing, tombstones, cache invalidation, and deletion checks |
+| 11 | How do you reduce latency and cost? | Parallel work, measured candidate counts, caching, batching, selective reranking, and model routing |
+| 12 | What do you monitor in production? | Retrieved IDs, scores, index and model versions, tokens, cost, errors, and percentile latency |
+| 13 | Exact vector search versus HNSW: what changes? | Exact results as a quality reference; approximate search trades some recall for latency and index cost |
+| 14 | When does agentic RAG earn its loop? | When source choice or retrieval steps must adapt at runtime, not merely because several sources exist |
+| 15 | When is RAG the wrong solution? | Structured calculations, transactions, known API workflows, adequate long context, or repeated behavior better addressed elsewhere |
 
 Practice the full answers:
 
 - [Walk through a production RAG pipeline](./production-rag-pipeline/)
+- [Choose a chunking strategy with a worked example](../rag/chunking/)
 - [How would you debug a bad RAG answer?](./rag-debugging/)
 - [Vector search versus graph search](../rag/vector-vs-graph-search/)
 - [When agentic RAG earns its loop](../rag/agentic-rag/)
