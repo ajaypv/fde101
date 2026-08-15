@@ -1,0 +1,67 @@
+---
+title: LangChain
+description: A compact reference to the LangChain Python building blocks you will meet in real applications.
+contentType: landing
+level: Beginner
+minutes: 12
+topics: [LangChain, Python, models, tools, retrieval]
+lastVerified: 2026-08-15
+sidebar:
+  label: Overview
+  order: 0
+sources:
+  - title: LangChain overview
+    url: https://docs.langchain.com/oss/python/langchain/overview
+    publisher: LangChain
+    type: official-doc
+  - title: LangChain Python reference
+    url: https://reference.langchain.com/python/langchain-core
+    publisher: LangChain
+    type: official-doc
+---
+
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
+
+<LessonMeta level="Beginner" minutes={12} verified="15 Aug 2026" />
+
+<Takeaway>LangChain supplies common interfaces for model calls, messages, tools, retrieval, and agents. Python still controls concurrency, waiting, exceptions, and your business rules.</Takeaway>
+
+<ConceptFlow steps={['Shape the input', 'Run the work', 'Inspect the result', 'Handle failure']} label="A LangChain call you can remember" />
+
+## The 19 concepts
+
+Read the first row before you build a model call. Read the operations row before you ship it.
+
+| Area | Concepts |
+| --- | --- |
+| Model input and output | [Chat models](./chat-models/) · [Messages](./messages/) · [Prompt templates](./prompt-templates/) · [Structured output](./structured-output/) |
+| Calling code | [Runnables and LCEL](./runnables-lcel/) · [`invoke` and `ainvoke`](./invoke-ainvoke/) · [`batch` and `abatch`](./batch-abatch/) · [`stream` and `astream`](./stream-astream/) · [`RunnableConfig`](./runnable-config/) |
+| Tools and agents | [Tools and schemas](./tools-and-schemas/) · [`bind_tools`, tool calls, and `ToolMessage`](./tool-calling/) · [`create_agent`](./create-agent/) · [Middleware](./middleware/) · [Retries and backoff](./retries-backoff/) |
+| Retrieval | [`Document` and loaders](./documents-loaders/) · [Text splitters](./text-splitters/) · [Embeddings and vector stores](./embeddings-vector-stores/) · [Retrievers](./retrievers/) |
+| Operations | [Callbacks and tracing](./callbacks-tracing/) |
+
+## Words that look similar
+
+| Word | Owned by | What it means |
+| --- | --- | --- |
+| `async def` | Python | Define a coroutine function. |
+| `await` | Python | Pause this coroutine until an awaitable finishes; the event loop may run other work. |
+| `asyncio.sleep(2)` | Python | Wait without blocking the event-loop thread. It does not retry anything. |
+| `ainvoke()` | LangChain | Asynchronous interface for one Runnable input. The implementation may use native async or a thread-pool fallback. |
+| `abatch()` | LangChain | Run several asynchronous inputs; the base implementation uses `asyncio.gather`. |
+| `astream()` | LangChain | Consume an async iterator of output chunks when the component really supports streaming. |
+
+## When an external tool fails
+
+1. **Classify it.** A timeout, connection reset, `429`, or some `5xx` responses may be transient. Invalid arguments, denied access, and most authentication failures need a different action.
+2. **Retry the smallest call.** Wrap the flaky model or tool, not an entire workflow that may have already sent an email or charged a card.
+3. **Back off.** Increase the delay between attempts and add jitter so many workers do not retry together.
+4. **Stop.** Cap attempts, return a controlled failure, use a fallback, or ask a human. A loop without a stop rule is an outage multiplier.
+
+Continue with [Retries and backoff](./retries-backoff/) for `with_retry()`, `ToolRetryMiddleware`, `await`, and `asyncio.sleep()`.
+
+## Where LangChain stops
+
+LangChain can standardize integrations. It cannot decide which customer data a tool may read, whether a payment is safe to repeat, or what quality is acceptable. Keep those decisions in explicit application policy and tests.

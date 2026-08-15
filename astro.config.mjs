@@ -51,8 +51,30 @@ export default defineConfig({
 				{
 					label: 'Frameworks',
 					items: [
-						{ label: 'LangChain', slug: 'langchain' },
-						{ label: 'LangGraph', slug: 'langgraph' },
+						{
+							label: 'LangChain',
+							collapsed: true,
+							items: [
+								{
+									autogenerate: {
+										directory: 'langchain',
+										collapsed: true,
+									},
+								},
+							],
+						},
+						{
+							label: 'LangGraph',
+							collapsed: true,
+							items: [
+								{
+									autogenerate: {
+										directory: 'langgraph',
+										collapsed: true,
+									},
+								},
+							],
+						},
 					],
 				},
 				{ label: 'Evaluation', items: [{ autogenerate: { directory: 'evals' } }] },

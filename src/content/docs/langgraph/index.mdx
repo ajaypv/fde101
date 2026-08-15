@@ -1,18 +1,25 @@
 ---
-title: LangGraph
-description: Learn LangGraph through explicit state, nodes, edges, checkpoints, and one readable Python workflow.
+title: LangGraph concept map
+description: A 19-part field reference for state, routing, tools, persistence, retries, waiting, and human review in LangGraph Python.
 contentType: lesson
 level: Intermediate
-minutes: 16
-topics: [LangGraph, agents, state, persistence]
+minutes: 24
+topics: [LangGraph, state, tools, persistence, retries]
 lastVerified: 2026-08-15
+sidebar:
+  label: Overview
+  order: 1
 sources:
   - title: LangGraph overview
     url: https://docs.langchain.com/oss/python/langgraph/overview
     publisher: LangChain
     type: official-doc
-  - title: Persistence
-    url: https://docs.langchain.com/oss/python/langgraph/persistence
+  - title: Graph API overview
+    url: https://docs.langchain.com/oss/python/langgraph/graph-api
+    publisher: LangChain
+    type: official-doc
+  - title: Fault tolerance
+    url: https://docs.langchain.com/oss/python/langgraph/fault-tolerance
     publisher: LangChain
     type: official-doc
 ---
@@ -23,53 +30,91 @@ import Takeaway from '../../../components/Takeaway.astro';
 import ConceptFlow from '../../../components/ConceptFlow.astro';
 import graphCode from '../../../examples/langgraph/support_graph.py?raw';
 
-<LessonMeta level="Intermediate" minutes={16} verified="15 Aug 2026" />
+<LessonMeta level="Intermediate" minutes={24} verified="15 Aug 2026" />
 
-<Takeaway>LangGraph makes a long-running workflow explicit as shared state updated by nodes connected through edges.</Takeaway>
+<Takeaway>LangGraph is a runtime for explicit workflows. Python does the work; LangGraph carries state, chooses the next node, checkpoints completed steps, and applies policies around a node attempt.</Takeaway>
 
-<ConceptFlow steps={['Read state', 'Run a node', 'Return an update', 'Choose the next edge', 'Checkpoint when configured']} label="LangGraph execution flow" />
+## The five-part mental model
+
+<ConceptFlow steps={['Define state', 'Add nodes', 'Connect edges', 'Compile', 'Run and observe']} label="Build a LangGraph workflow" />
+
+| Part | Question to ask | Start here |
+| --- | --- | --- |
+| 1. State | What facts must survive the next step? | [State schema](./state-schema/) |
+| 2. Work | Which small function owns this operation? | [Nodes](./nodes/) |
+| 3. Route | What must run next, and who chooses it? | [Edges](./edges/) |
+| 4. Runtime | How will this run, stream, pause, or resume? | [Compile](./compile/) |
+| 5. Failure | Which error retries, stops, or needs a person? | [Retries and tool failures](./retries-tool-failures/) |
+
+`StateGraph` is the builder. State is the shared record. Nodes return updates. Edges schedule the next work. `compile()` produces the runnable graph.[^graph-api]
+
+## The 19 concepts
+
+Read the first ten in order once. Use the remaining nine when the workflow needs tools, persistence, parallel work, or recovery.
+
+| # | Concept | Keep this sentence |
+| ---: | --- | --- |
+| 1 | [StateGraph](./stategraph/) | The builder that holds the workflow definition. |
+| 2 | [State schema](./state-schema/) | The contract for data moving through the graph. |
+| 3 | [Reducers and `Annotated`](./reducers/) | The rule for combining two updates to one state key. |
+| 4 | [Nodes](./nodes/) | Python functions that do one unit of work. |
+| 5 | [Edges](./edges/) | Static transitions between nodes. |
+| 6 | [Conditional edges](./conditional-edges/) | A routing function chooses the next node. |
+| 7 | [`START` and `END`](./start-end/) | Virtual markers for entry and termination. |
+| 8 | [`compile()`](./compile/) | Validate the definition and create a runnable graph. |
+| 9 | [`invoke()` and `ainvoke()`](./invoke-ainvoke/) | Run to a final result, synchronously or asynchronously. |
+| 10 | [`stream()` and `astream()`](./stream-astream/) | Observe updates while the graph runs. |
+| 11 | [`Command`](./command/) | Return a state update and route together, or resume an interrupt. |
+| 12 | [`Send` and fan-out](./send-parallel-fanout/) | Create parallel node calls with different inputs. |
+| 13 | [`ToolNode` and `tools_condition`](./toolnode-tools-condition/) | Execute model-requested tools and route the tool loop. |
+| 14 | [Checkpoints and `thread_id`](./checkpoints-threads/) | Save state snapshots under one run or conversation identity. |
+| 15 | [Durability modes](./durability/) | Choose when checkpoint writes must finish. |
+| 16 | [Interrupt and resume](./interrupts-resume/) | Persist a pause and continue later with external input. |
+| 17 | [Subgraphs](./subgraphs/) | Put a smaller graph behind a clear parent interface. |
+| 18 | [`RetryPolicy` and tool failures](./retries-tool-failures/) | Retry classified transient failures at the node boundary. |
+| 19 | [Async waiting and timeouts](./async-waiting-timeouts/) | `await` is Python; durable waiting needs LangGraph state and policy. |
+
+## Words that belong to different layers
+
+| Word | Owned by | What it means |
+| --- | --- | --- |
+| `async def` | Python | Define a coroutine function. |
+| `await` | Python | Yield control until an awaitable completes. |
+| `asyncio.sleep()` | Python | Keep an in-memory coroutine paused for a duration. |
+| `ainvoke()` / `astream()` | LangGraph runnable API | Run or stream the graph asynchronously. |
+| `RetryPolicy` | LangGraph | Re-run a failed node attempt with bounded backoff. |
+| `TimeoutPolicy` | LangGraph | Cancel an async node attempt that exceeds its limit. |
+| `interrupt()` | LangGraph | Save a pause and wait for an external resume value. |
+
+**`sleep`, `await`, and `asyncio.sleep` are not LangGraph keywords.** Sleeping inside a node does not create a durable timer or checkpoint. Use `RetryPolicy` for short transient retries and `interrupt()` plus a checkpointer for a pause that must survive process restarts.[^fault-tolerance]
 
 ## A graph you can read
 
-This workflow classifies a support question and drafts the next response. The model has been deliberately left out so the orchestration is visible.
-
 <Code code={graphCode} lang="python" title="src/examples/langgraph/support_graph.py" />
 
-The state is the shared record. Each node reads it and returns a partial update. Edges describe what runs next. `START` and `END` make the lifecycle visible.[^overview]
+## When a tool fails
 
-## Why use a graph?
+<ConceptFlow steps={['Model requests a tool', 'ToolNode validates arguments', 'Tool executes', 'Exception is handled or escapes', 'RetryPolicy retries the node or recovery takes over']} label="Tool failure path" />
 
-A graph earns its place when a workflow needs some combination of:
+| Failure | Normal owner | Result |
+| --- | --- | --- |
+| Malformed model arguments | `ToolNode` default handler | Error `ToolMessage`; the model may correct its call. |
+| Temporary upstream failure | Node `RetryPolicy` | Exception must escape `ToolNode`; LangGraph retries the node. |
+| Missing permission or bad user input | Application rule | Stop, return a safe error, or ask the user. Do not retry blindly. |
+| Retries exhausted | Node error handler or caller | Route to fallback/human review, or let the run fail visibly. |
+| Unknown exception | Developer | Let it bubble, trace it, and fix the defect. |
 
-- branching based on state;
-- loops with a clear stop condition;
-- human approval before a side effect;
-- resumable execution after a process failure;
-- inspectable intermediate state;
-- deterministic steps mixed with model decisions.
+Retries happen around the **whole node attempt**, not around one line inside a tool. Any side-effecting tool in that node needs an idempotency key or a check-before-write rule.
 
-For a single prompt and response, a normal function is clearer.
+## FDE review questions
 
-## Checkpoints, threads, and stores
+1. Which state keys may receive parallel updates, and what reducer merges them?
+2. Which node owns each network call and timeout?
+3. Which exceptions are transient, user-fixable, policy failures, or defects?
+4. Can a retry send the same email, payment, or ticket twice?
+5. Which checkpoint and tenant boundary does `thread_id` identify?
+6. Where does a person approve, reject, or correct the run?
+7. What stops every loop and caps every fan-out?
 
-These terms answer different questions.[^persistence]
-
-| Term | Question it answers |
-| --- | --- |
-| State | What does this run know right now? |
-| Checkpoint | What state snapshot can this run resume from? |
-| Thread | Which sequence of checkpoints belongs to one conversation or job? |
-| Store | What information should be shared across threads? |
-
-Persistence is not automatically “memory.” Decide what may be retained, for how long, and for which tenant.
-
-## FDE questions
-
-- Which nodes can create external side effects?
-- Is retrying a node safe, or could it duplicate an email, ticket, or payment?
-- What identifies a thread, and can one customer ever read another customer’s state?
-- Where can a human inspect and correct state before resuming?
-- What is the hard stop for loops and tool calls?
-
-[^overview]: [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview), official documentation.
-[^persistence]: [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence) describes checkpoints saved to threads and distinguishes checkpointed state from the cross-thread Store.
+[^graph-api]: LangChain, [Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api).
+[^fault-tolerance]: LangChain, [Fault tolerance](https://docs.langchain.com/oss/python/langgraph/fault-tolerance) and [Interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts).
