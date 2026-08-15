@@ -21,12 +21,23 @@ export default defineConfig({
 			title: 'FDE 101',
 			description: 'A practical field guide to LLMs, RAG, agents, evaluation, and delivery.',
 			favicon: '/favicon.svg',
-			customCss: ['@fontsource-variable/newsreader/wght.css', './src/styles/book.css'],
+			customCss: [
+				'@fontsource-variable/source-serif-4/wght.css',
+				'@fontsource-variable/source-sans-3/wght.css',
+				'./src/styles/book.css',
+			],
 			lastUpdated: true,
 			pagefind: true,
 			tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 3 },
 			head: [
-				{ tag: 'meta', attrs: { name: 'theme-color', content: '#f7f3e9' } },
+				{
+					tag: 'meta',
+					attrs: { name: 'theme-color', content: '#ffffff', media: '(prefers-color-scheme: light)' },
+				},
+				{
+					tag: 'meta',
+					attrs: { name: 'theme-color', content: '#000000', media: '(prefers-color-scheme: dark)' },
+				},
 				{ tag: 'link', attrs: { rel: 'sitemap', href: `${basePath}/sitemap-index.xml` } },
 			],
 			sidebar: [
