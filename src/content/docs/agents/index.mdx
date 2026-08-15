@@ -1,0 +1,143 @@
+---
+title: Agent systems without chaos
+description: Learn tool use, ReAct-style loops, planning, durable state, handoffs, and self-correction as bounded patterns rather than autonomy levels.
+contentType: lesson
+level: Intermediate
+minutes: 20
+topics: [agents, tools, ReAct, workflows, LangGraph]
+lastVerified: 2026-08-15
+sidebar:
+  order: 1
+sources:
+  - title: Building effective agents
+    url: https://www.anthropic.com/engineering/building-effective-agents
+    publisher: Anthropic
+    type: official-doc
+  - title: ReAct — Synergizing reasoning and acting in language models
+    url: https://arxiv.org/abs/2210.03629
+    publisher: arXiv
+    type: paper
+  - title: LangGraph overview
+    url: https://docs.langchain.com/oss/python/langgraph/overview
+    publisher: LangChain
+    type: official-doc
+  - title: LangGraph persistence
+    url: https://docs.langchain.com/oss/python/langgraph/persistence
+    publisher: LangChain
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
+import agentCode from '../../../examples/agents/bounded_tool_loop.py?raw';
+
+<LessonMeta level="Intermediate" minutes={20} verified="15 Aug 2026" />
+
+<Takeaway>An agent lets a model choose the next action. Production code still owns its tools, permissions, state, budget, stopping rule, and side effects.</Takeaway>
+
+## Tool call, workflow, or agent?
+
+These terms describe different amounts of model control.
+
+| Pattern | Who chooses the next step? | Tiny example |
+| --- | --- | --- |
+| Tool call inside a workflow | Application code | Always look up an order, then summarize it |
+| Workflow or chain | Application code follows known branches | Extract invoice → validate totals → request approval |
+| Agent | Model chooses among allowed actions from observations | Investigate an incident whose next check depends on the last result |
+
+Anthropic draws the same practical boundary: workflows follow predefined code paths; agents dynamically direct their process and tool use.[^effective-agents]
+
+One tool call does not automatically make a system an agent. A model may fill the arguments for a tool while deterministic code controls every step around it.
+
+## A useful learning ladder—not a standard
+
+There are no official “five levels of agents.” The following capabilities are a study order. Real systems combine them according to the problem, and later rows are not automatically better.
+
+| Capability | What changes | Add it when | New failure |
+| --- | --- | --- | --- |
+| **1. Scoped tool use** | Model proposes one allowed tool and arguments | Natural language must select a capability | Wrong tool or malformed arguments |
+| **2. Observation loop** | Model decides, acts, reads the result, and decides again | The next action depends on evidence | Endless loops and token cost |
+| **3. Plan and execute** | A large task becomes explicit subgoals | Work has dependencies that are hard to discover up front | Stale or unrealistic plans |
+| **4. Durable state and handoffs** | Work can pause, resume, or transfer to a specialist | Tasks span steps, people, or processes | State leakage and unsafe resume |
+| **5. Evaluated correction** | Tests or validators feed failures back for a bounded retry | A trustworthy external signal can improve the result | Repeated confident mistakes |
+
+Treat multi-agent design as another topology, not a higher rank. A single agent can have durable state; several routed specialists can remain stateless.
+
+## Reason and act
+
+The ReAct paper interleaves reasoning with actions and observations so new evidence can change the next action.[^react] In product diagrams, the safer wording is:
+
+<ConceptFlow steps={['Decide', 'Act through a tool', 'Observe the result', 'Decide again or stop']} label="Bounded observation loop" />
+
+Example:
+
+```text
+Question: Can I travel tomorrow without heavy rain?
+
+Decide: Current weather is required.
+Act: weather(city="Bengaluru", date="tomorrow")
+Observe: Heavy rain is expected after 4 PM.
+Decide: A morning option may work; check transport.
+Act: train_search(route="Bengaluru-Mysuru", before="12:00")
+Observe: Seats are available at 8 AM.
+Answer: Recommend the morning option and cite both tool results.
+```
+
+The loop earns its cost because the second action depends on the first observation.
+
+## Workflow versus agent
+
+| Situation | Better starting point | Why |
+| --- | --- | --- |
+| Extract fields, validate them, write to an ERP | Workflow | Steps and validation rules are known |
+| Translate, then run a fixed compliance check | Workflow | Predictable and easy to test |
+| Investigate an unfamiliar production incident | Bounded agent | The next action depends on findings |
+| Search several known systems in parallel | Router and workers | Sources are known; work can fan out |
+| One uncertain research step inside a fixed process | Hybrid | Workflow outside, agent only at the uncertain node |
+| Refund, deletion, or payment | Deterministic gate plus approval | A model must not be the authorization boundary |
+
+“If you can draw the workflow, do not use an agent” is a strong starting heuristic, not a law. A graph can contain one agentic node inside otherwise deterministic control flow.
+
+## A bounded loop in code
+
+This skeleton gives the model two tools. Application code checks the tool name, validates arguments, reserves authorization for itself, and stops the loop after five steps.
+
+<Code code={agentCode} lang="python" title="src/examples/agents/bounded_tool_loop.py" />
+
+The model proposes. The application executes. For tools with side effects, add idempotency keys, approval, audit records, and a result check before the model claims success.
+
+## Where LangGraph fits
+
+LangGraph makes state, nodes, edges, checkpoints, and resume behavior explicit.[^langgraph] Use it when the workflow needs branching, loops, human approval, durable execution, or a mixture of deterministic and model-driven steps.
+
+It does not make an unbounded loop safe by itself. You must still define:
+
+- the state schema and tenant boundary;
+- allowed transitions and maximum steps;
+- which nodes may create side effects;
+- which failures may retry;
+- where a person must approve or correct state;
+- how old checkpoints and long-term memories are deleted.
+
+## Self-correction needs an external signal
+
+Weak correction asks a model to review its own answer and accepts “looks good.” Strong correction supplies evidence:
+
+```text
+generate code → run deterministic tests → return failing output
+              → retry at most twice → escalate if tests still fail
+```
+
+Evaluator–optimizer loops work best when the criteria are clear and iteration produces measurable improvement.[^effective-agents] Without tests, validators, retrieved evidence, or a calibrated grader, another model pass can repeat the same error.
+
+## Interview rule
+
+Name the uncertain decision. If no step requires model judgment, begin with normal code. If one step is uncertain, confine the agent there and keep the rest deterministic.
+
+Next: [LangGraph state and persistence](../langgraph/) or the [agent-versus-workflow interview answer](../interview/agent-vs-workflow/).
+
+[^effective-agents]: Anthropic, [“Building effective agents”](https://www.anthropic.com/engineering/building-effective-agents), recommends starting with the simplest composable pattern and describes the latency, cost, control, and flexibility trade-offs.
+[^react]: Yao et al., [“ReAct: Synergizing Reasoning and Acting in Language Models”](https://arxiv.org/abs/2210.03629), ICLR 2023.
+[^langgraph]: LangChain, [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview) and [persistence guide](https://docs.langchain.com/oss/python/langgraph/persistence).

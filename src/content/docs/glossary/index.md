@@ -10,25 +10,32 @@ sidebar:
 
 This is the alphabetical reference behind the front-page field index. Each note gives a plain definition, a small example, and the implementation detail an FDE should remember.
 
-## A–H
+## A–F
 
 - [Abstention](./abstention/) — choosing not to guess when evidence is insufficient.
 - [Agent](./agent/) — a model-driven loop that can choose actions and tools.
+- [Answer relevance](./answer-relevance/) — whether a response directly addresses the user's question.
+- [Chain or workflow](./workflow/) — a predefined sequence controlled by application code.
 - [Checkpoint](./checkpoint/) — a persisted snapshot of workflow state.
+- [Context engineering](./context-engineering/) — curating the instructions, tools, history, state, and evidence a model sees.
 - [Context window](./context-window/) — the token capacity available to one model call.
 - [Embedding](./embedding/) — a numeric representation used to compare meaning.
+- [Faithfulness](./faithfulness/) — whether answer claims are supported by retrieved context.
+- [Fine-tuning](./fine-tuning/) — updating model weights to improve a defined, repeated behavior.
+
+## G–R
+
 - [Groundedness](./groundedness/) — whether answer claims are supported by supplied evidence.
 - [Hallucination](./hallucination/) — a generated claim unsupported by available evidence.
 - [HNSW](./hnsw/) — a graph index for approximate nearest-neighbor search.
 - [Hybrid search](./hybrid-search/) — combining semantic and keyword retrieval.
-
-## M–R
-
 - [Message roles](./message-roles/) — labels separating instructions, user input, model output, and tool results.
 - [Model Context Protocol (MCP)](./model-context-protocol/) — a protocol for connecting AI applications to external capabilities.
 - [Precision@k](./precision-at-k/) — the relevant share of the first `k` retrieved results.
 - [Prompt](./prompt/) — the instructions and context supplied for a task.
+- [Query rewriting](./query-rewriting/) — turning a question into search-friendly wording while preserving intent.
 - [RAG](./retrieval-augmented-generation/) — retrieval followed by evidence-grounded generation.
+- [ReAct](./react/) — interleaving model decisions, actions, and observations.
 - [Recall@k](./recall-at-k/) — the known relevant share found in the first `k` results.
 - [Reranking](./reranking/) — scoring a candidate set more carefully in a second stage.
 
@@ -42,4 +49,4 @@ This is the alphabetical reference behind the front-page field index. Each note 
 - [Tool calling](./tool-calling/) — a structured model request for application code to invoke a capability.
 - [Vector store](./vector-store/) — storage and nearest-neighbor retrieval for embeddings and metadata.
 
-For longer treatments, continue to [RAG and retrieval](../rag/), [evaluations](../evals/), [LangChain](../langchain/), or [LangGraph](../langgraph/).
+For longer treatments, continue to [production retrieval](../rag/production-retrieval/), [agent systems](../agents/), [the applied AI roadmap](../foundations/applied-ai-roadmap/), or [evaluations](../evals/).

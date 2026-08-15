@@ -8,6 +8,11 @@ topics: [groundedness, evaluation, RAG]
 lastVerified: 2026-08-15
 sidebar:
   order: 16
+sources:
+  - title: Evaluate a RAG application
+    url: https://docs.langchain.com/langsmith/evaluate-rag-tutorial
+    publisher: LangChain
+    type: official-doc
 ---
 
 **Groundedness** measures whether an answer's claims are supported by the evidence available in the request, such as retrieved passages or tool results.
@@ -25,3 +30,7 @@ Evidence says “Returns are accepted for 30 days.” The answer “Returns are 
 ## FDE note
 
 Evaluate claim by claim and retain source IDs. A fluent answer with a citation is not necessarily grounded if the cited passage does not entail the claim.
+
+See [Faithfulness](../faithfulness/) for the closely related term and its distinction from answer relevance and correctness.[^rag-eval]
+
+[^rag-eval]: LangChain's [RAG evaluation tutorial](https://docs.langchain.com/langsmith/evaluate-rag-tutorial) separates answer-versus-context evaluation from answer-versus-question and answer-versus-reference evaluation.

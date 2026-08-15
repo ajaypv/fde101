@@ -65,6 +65,12 @@ const terms = [
 		href: '/glossary/reranking/',
 	},
 	{
+		name: 'Query rewriting',
+		description: 'Restate a question in search-friendly language without changing its intent.',
+		category: 'Retrieval',
+		href: '/glossary/query-rewriting/',
+	},
+	{
 		name: 'Context window',
 		description: 'The token budget a model can consider during one request.',
 		category: 'Models',
@@ -83,6 +89,12 @@ const terms = [
 		href: '/glossary/prompt/',
 	},
 	{
+		name: 'Context engineering',
+		description: 'Curate the instructions, tools, history, state, and evidence a model sees.',
+		category: 'Models',
+		href: '/glossary/context-engineering/',
+	},
+	{
 		name: 'System prompt',
 		description: 'High-priority instructions that define the model’s role and boundaries.',
 		category: 'Models',
@@ -95,10 +107,22 @@ const terms = [
 		href: '/glossary/message-roles/',
 	},
 	{
+		name: 'Fine-tuning',
+		description: 'Update model weights to improve a defined, repeated behavior.',
+		category: 'Models',
+		href: '/glossary/fine-tuning/',
+	},
+	{
 		name: 'Groundedness',
 		description: 'Whether an answer’s claims are supported by the supplied evidence.',
 		category: 'Evaluation',
 		href: '/glossary/groundedness/',
+	},
+	{
+		name: 'Faithfulness',
+		description: 'Whether every answer claim can be supported by the retrieved context.',
+		category: 'Evaluation',
+		href: '/glossary/faithfulness/',
 	},
 	{
 		name: 'Hallucination',
@@ -124,6 +148,18 @@ const terms = [
 		description: 'A model-directed loop that can choose tools and actions toward a goal.',
 		category: 'Agents',
 		href: '/glossary/agent/',
+	},
+	{
+		name: 'Chain or workflow',
+		description: 'A predefined sequence whose steps and branches are controlled by code.',
+		category: 'Agents',
+		href: '/glossary/workflow/',
+	},
+	{
+		name: 'ReAct',
+		description: 'Let observations from tool calls guide what the model decides to do next.',
+		category: 'Agents',
+		href: '/glossary/react/',
 	},
 	{
 		name: 'Tool calling',

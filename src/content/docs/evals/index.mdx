@@ -3,19 +3,37 @@ title: Evaluation that changes decisions
 description: Measure retrieval, grounded answers, safety, latency, and cost with explicit denominators and release gates.
 contentType: lesson
 level: Intermediate
-minutes: 15
+minutes: 18
 topics: [evaluation, precision, recall, RAG]
 lastVerified: 2026-08-15
 sidebar:
   order: 1
+sources:
+  - title: Machine Learning Glossary — Precision@k and Recall@k
+    url: https://developers.google.com/machine-learning/glossary/metrics
+    publisher: Google for Developers
+    type: official-doc
+  - title: Evaluate a RAG application
+    url: https://docs.langchain.com/langsmith/evaluate-rag-tutorial
+    publisher: LangChain
+    type: official-doc
+  - title: Develop a RAG solution — Information-retrieval phase
+    url: https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-information-retrieval
+    publisher: Microsoft
+    type: official-doc
+  - title: RAGAS — Automated Evaluation of Retrieval Augmented Generation
+    url: https://aclanthology.org/2024.eacl-demo.16/
+    publisher: Association for Computational Linguistics
+    type: paper
 ---
 
 import { Code } from '@astrojs/starlight/components';
 import LessonMeta from '../../../components/LessonMeta.astro';
 import Takeaway from '../../../components/Takeaway.astro';
-import metricsCode from '../../../examples/evals/retrieval_metrics.py?raw';
+import retrievalMetricsCode from '../../../examples/evals/retrieval_metrics.py?raw';
+import answerMetricsCode from '../../../examples/evals/rag_answer_metrics.py?raw';
 
-<LessonMeta level="Intermediate" minutes={15} verified="15 Aug 2026" />
+<LessonMeta level="Intermediate" minutes={18} verified="15 Aug 2026" />
 
 <Takeaway>An eval is a repeatable question, expected behavior, scoring rule, and decision threshold—not a demo that looked convincing.</Takeaway>
 
@@ -31,12 +49,60 @@ security             not relevant
 
 Two documents are known to be relevant: `refund-policy` and `cancellation-policy`.
 
-- **Precision@3 = 1 / 3**: one of three retrieved documents is relevant.
-- **Recall@3 = 1 / 2**: one of two relevant documents was retrieved.
+- **Precision@3 = 1 / 3**: one relevant result divided by the requested `k` of three.
+- **Recall@3 = 1 / 2**: one relevant result found divided by two known relevant results.
 
-<Code code={metricsCode} lang="python" title="src/examples/evals/retrieval_metrics.py" />
+Written as formulas:[^ranked-metrics]
 
-Always report `k`, the relevance definition, the dataset size, and how labels were produced. “Precision improved” is incomplete without them.
+```text
+Precision@k = relevant results in the first k / k
+Recall@k    = relevant results in the first k / all known relevant results
+```
+
+This book calculates Precision@k only when the retriever returned at least `k` results. If it returned fewer, record an incomplete result or rerun with a valid `k`; silently changing the denominator makes comparisons misleading. Recall@k also needs a trustworthy set of known relevant passages. Test questions with no relevant evidence belong in a separate unanswerable-question and abstention suite.
+
+<Code code={retrievalMetricsCode} lang="python" title="src/examples/evals/retrieval_metrics.py" />
+
+## Keep retrieval and generation separate
+
+A final answer can look good even when retrieval was weak, and strong retrieval can still be followed by a bad answer. Score the two parts separately so a failure points to the component that needs work.
+
+| Layer | Metric | Compares | Question it answers |
+| --- | --- | --- | --- |
+| Retrieval | Precision@k | Top `k` passages vs relevance labels | How clean is the retrieved list? |
+| Retrieval | Recall@k | Top `k` passages vs all known relevant passages | Did retrieval find the needed evidence? |
+| Generation | Faithfulness or groundedness | Answer claims vs retrieved context | Does the supplied evidence support each claim? |
+| Generation | Answer relevance | Answer vs user question | Did the response address what was asked? |
+| Generation | Correctness | Answer vs trusted reference | Does the answer agree with known truth? |
+
+LangSmith documents these as distinct comparison pairs rather than one blended “RAG quality” score.[^rag-eval] RAGAS likewise evaluates retrieval, faithful use of context, and generation quality as separate dimensions.[^ragas]
+
+## One question, four different failures
+
+```text
+Question: What is the return window?
+
+Retrieved context:
+- Returns are accepted for 30 days.
+- The company was founded in 1998.
+
+Trusted reference: The return window is 30 days, and a receipt is required.
+```
+
+| Generated answer | Grounded? | Relevant? | Correct? | Diagnosis |
+| --- | --- | --- | --- | --- |
+| “Returns are accepted for 30 days.” | Yes | Yes | Yes | Supported, direct, and matches the reference |
+| “Returns are accepted for 30 days without a receipt.” | No | Yes | No | The receipt claim lacks context support and contradicts the trusted reference |
+| “The company was founded in 1998.” | Yes | No | No | Supported by context, but it does not answer the question |
+| “Returns are accepted for 60 days.” | No | Yes | No | It addresses the question but contradicts the evidence and reference |
+
+A grounded answer can still be wrong when the indexed source is stale. A correct answer can be ungrounded when the model supplies a fact that the retrieved context never supported. Keep both checks.
+
+The following provider-neutral shape computes retrieval metrics first and injects answer grading as a separate interface. The grader might use reviewed rules, humans, or a calibrated model judge; the interface does not pretend that a model judge is ground truth.
+
+<Code code={answerMetricsCode} lang="python" title="src/examples/evals/rag_answer_metrics.py" />
+
+Always report `k`, the relevance definition, dataset size, label method, aggregation method, and evaluator version. “Precision improved” is incomplete without them.
 
 ## Evaluate each stage
 
@@ -54,25 +120,40 @@ Always report `k`, the relevance definition, the dataset size, and how labels we
 A useful first dataset can be small:
 
 1. collect real questions from users and support staff;
-2. include ordinary cases, edge cases, and adversarial cases;
+2. include ordinary, multi-passage, exact-identifier, unanswerable, and adversarial cases;
 3. label acceptable evidence and answer behavior;
 4. preserve dataset versions;
 5. inspect failures individually before averaging scores.
 
+Use human-reviewed examples to calibrate automated judges. An LLM grader is another model with possible errors, not an objective measuring instrument.
+
 ## Turn a metric into a gate
 
-Define the decision before running the evaluation:
+Define the decision before running the evaluation. These thresholds are illustrative; choose them from the workflow's risk and baseline:
 
 ```text
 Release only if:
+  # Retrieval quality
   retrieval recall@5 >= 0.90
+  retrieval precision@5 >= 0.70
+
+  # Answer behavior
   grounded answer rate >= 0.95
+  reference-answer correctness >= 0.90
   correct abstention rate >= 0.90
+  supported citation rate >= 0.95
+
+  # Safety
+  unauthorized passage exposure == 0
+  critical prompt-injection successes == 0
+
+  # Operations
   p95 latency <= 4 seconds
-  no critical data-isolation failures
+  p95 cost per answer <= agreed budget
+  request error rate <= agreed SLO
 ```
 
-Thresholds should follow the workflow risk. A writing assistant and an invoice approval agent should not share the same gate.
+An average cannot excuse a critical data-isolation failure. Safety gates are hard stops; quality and operational thresholds express the product trade-offs. A writing assistant and an invoice approval agent should not share the same gate.
 
 ## FDE questions
 
@@ -80,3 +161,7 @@ Thresholds should follow the workflow risk. A writing assistant and an invoice a
 - Which failures are severe even if the average score is high?
 - Does the test set represent each customer, language, permission level, and source type?
 - Can a reviewer trace a failing score back to input, retrieval, model output, and code version?
+
+[^ranked-metrics]: Google for Developers defines [Precision@k and Recall@k](https://developers.google.com/machine-learning/glossary/metrics) for ranked lists. Microsoft also documents the retrieval-specific definitions in its [RAG information-retrieval guidance](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-information-retrieval).
+[^rag-eval]: LangChain, [“Evaluate a RAG application”](https://docs.langchain.com/langsmith/evaluate-rag-tutorial), separates correctness, answer relevance, groundedness, and retrieval relevance.
+[^ragas]: Es et al., [“RAGAS: Automated Evaluation of Retrieval Augmented Generation”](https://aclanthology.org/2024.eacl-demo.16/), EACL 2024.

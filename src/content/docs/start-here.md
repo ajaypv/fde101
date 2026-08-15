@@ -18,7 +18,10 @@ This is a reference book, not a course you must finish in order. Start with a cu
 | --- | --- | --- |
 | Understand the vocabulary | [LLM foundations](../foundations/llms/) | [Glossary](../glossary/) |
 | Build a grounded assistant | [RAG, end to end](../rag/) | [Chunking](../rag/chunking/) |
+| Move RAG from demo to production | [Production retrieval](../rag/production-retrieval/) | [Evaluation](../evals/) |
+| Build a bounded agent | [Agent systems without chaos](../agents/) | [LangGraph](../langgraph/) |
 | Build a stateful workflow | [LangGraph](../langgraph/) | [State vs memory](../interview/langgraph-state-vs-memory/) |
+| Follow an applied AI roadmap | [Applied AI engineering roadmap](../foundations/applied-ai-roadmap/) | [Context engineering](../glossary/context-engineering/) |
 | Prove a system works | [Evaluation](../evals/) | [Production checklist](../field-guide/production-rag-checklist/) |
 | Prepare for an interview | [Interview room](../interview/) | [RAG debugging](../interview/rag-debugging/) |
 
@@ -35,4 +38,4 @@ Every lesson uses the same reading rhythm:
 
 ## A sensible first week
 
-Read [LLM foundations](../foundations/llms/), [RAG](../rag/), and [evaluation](../evals/). Then run the three examples in `src/examples`. That gives you enough vocabulary to discuss a real use case without pretending the hard production questions are already solved.
+Begin with the [applied AI engineering roadmap](../foundations/applied-ai-roadmap/), then read [LLM foundations](../foundations/llms/), [RAG](../rag/), and [evaluation](../evals/). Choose [production retrieval](../rag/production-retrieval/) if the system answers from documents, or [agent systems without chaos](../agents/) if it must choose tools and actions. Then run the examples in `src/examples`.

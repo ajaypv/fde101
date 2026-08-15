@@ -1,0 +1,146 @@
+---
+title: From demo RAG to production retrieval
+description: Add query rewriting, hybrid search, reranking, permissions, tracing, and evaluation only where measured failures justify them.
+contentType: lesson
+level: Intermediate
+minutes: 20
+topics: [RAG, hybrid search, query rewriting, reranking, production]
+lastVerified: 2026-08-15
+sidebar:
+  order: 3
+sources:
+  - title: Retrieval-augmented generation for knowledge-intensive NLP tasks
+    url: https://arxiv.org/abs/2005.11401
+    publisher: arXiv
+    type: paper
+  - title: RAG in Azure AI Search
+    url: https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview
+    publisher: Microsoft
+    type: official-doc
+  - title: Hybrid search
+    url: https://www.elastic.co/docs/solutions/search/hybrid-search
+    publisher: Elastic
+    type: official-doc
+  - title: Rewrite queries with semantic ranker
+    url: https://learn.microsoft.com/en-us/azure/search/semantic-how-to-query-rewrite
+    publisher: Microsoft
+    type: official-doc
+  - title: Rerank overview
+    url: https://docs.cohere.com/docs/rerank-overview
+    publisher: Cohere
+    type: official-doc
+---
+
+import { Code } from '@astrojs/starlight/components';
+import LessonMeta from '../../../components/LessonMeta.astro';
+import Takeaway from '../../../components/Takeaway.astro';
+import productionCode from '../../../examples/rag/production_retrieval.py?raw';
+
+<LessonMeta level="Intermediate" minutes={20} verified="15 Aug 2026" />
+
+<Takeaway>A vector search followed by an LLM is a useful baseline. A production RAG system is that baseline plus the controls that its measured failures require.</Takeaway>
+
+## First, correct the definition
+
+RAG retrieves external evidence at request time and supplies it to a language model.[^rag-paper] The retriever may use keyword search, vectors, SQL, APIs, or several methods together. RAG does **not** require embeddings or a vector database.
+
+Think of a librarian. The librarian can search by title, subject, catalog number, or database query. The defining step is bringing useful evidence to the reader—not using one particular index.
+
+## Baseline and production are not opposites
+
+| Baseline RAG | Production question |
+| --- | --- |
+| Load text | Was every page, table, heading, and deletion handled correctly? |
+| Split text | Does each chunk preserve the answer and its qualifier? |
+| Embed and store | Are source identity, freshness, tenant, and permissions attached? |
+| Vector search | Do exact IDs and paraphrases both retrieve well? |
+| Send top results to the model | Did ranking and token packing preserve the answer-bearing passage? |
+| Generate an answer | Is each claim supported, cited, observable, and safe to return? |
+
+A simple two-step pipeline can serve a narrow production use case when it passes its quality, security, latency, and reliability gates. Hybrid search, rewriting, and reranking are not badges of maturity. Each added stage must improve a representative evaluation enough to justify its cost and latency.
+
+## The two pipelines
+
+```text
+OFFLINE: prepare trustworthy evidence
+
+sources → parse → inspect → chunk → attach metadata
+        → embed/index → update and delete stale content
+
+ONLINE: answer one request
+
+question → authorize → optional rewrite → broad retrieval
+         → fuse → rerank → pack context → answer/cite/abstain
+         → trace and evaluate
+```
+
+Microsoft's RAG guidance treats query understanding, token constraints, multi-source access, and granular authorization as separate engineering problems.[^azure-rag]
+
+## One worked retrieval
+
+Suppose the user asks, “Can I return order `ORD-1042` after two weeks?”
+
+```text
+original query → keyword top 20 ─┐
+                                 ├→ RRF fusion → 30 candidates
+rewritten query → vector top 20 ─┘
+                                      ↓
+                                semantic reranker
+                                      ↓
+                              best 5 passages
+                                      ↓
+                         answer with passage citations
+```
+
+Keyword search protects the exact order code. Vector search helps when the policy says “14-day return period” rather than “two weeks.” Hybrid search combines the ranked lists; reciprocal rank fusion is useful because it works with ranks instead of assuming the two raw score scales are comparable.[^hybrid]
+
+The numbers above are examples, not defaults. Tune candidate depth and final context size against retrieval quality, latency, and the model's context budget.
+
+## Query rewriting needs a seat belt
+
+[Query rewriting](../../glossary/query-rewriting/) can clarify a conversational question, add corpus language, or create several focused searches. It can also remove an exact identifier or change the user's intent. Microsoft's implementation runs the original and rewritten queries and warns that rewrites can lose terms such as product codes.[^rewrite]
+
+Keep the original query, record every rewrite, and compare retrieval with and without the step.
+
+## Rerank what retrieval found
+
+A first-stage retriever should be fast enough to collect candidates. A reranker then scores a smaller list more carefully. Rerank APIs accept a query plus documents and return them in a new relevance order.[^rerank]
+
+A reranker cannot rescue a passage missing from the candidate set. Low recall must be fixed before the reranking stage.
+
+## A readable implementation
+
+The example keeps vendor details behind interfaces. It preserves the original query for exact search, applies the rewrite only to semantic search, enforces tenant and caller filters in both branches, fuses ranks, reranks candidates, adds citation and abstention instructions, and returns the exact final passages for later claim checks.
+
+<Code code={productionCode} lang="python" title="src/examples/rag/production_retrieval.py" />
+
+The code still does not prove the answer is correct. It makes each stage visible enough to measure.
+
+## Where quality actually breaks
+
+| Stage | Typical failure | Inspect this artifact |
+| --- | --- | --- |
+| Source | Correct policy is absent or stale | Source version and sync log |
+| Parsing | PDF columns or table cells become scrambled text | Extracted text beside the original page |
+| Chunking | Rule and exception land in different chunks | Chunk text plus section path |
+| Metadata | Page, tenant, permission, or source ID disappears | Stored chunk record |
+| Query | User language does not match corpus language | Original and rewritten queries |
+| Retrieval | Needed passage falls below the candidate cutoff | Full ranked candidate list |
+| Fusion/reranking | A relevant candidate is ordered poorly | Ranks before and after each stage |
+| Context assembly | Deduplication or truncation removes evidence | Exact final context sent to the model |
+| Generation | Model ignores or changes correct evidence | Answer claims beside supplied context |
+| Citation | Link works but does not support the claim | Claim-to-passage mapping |
+
+“RAG usually fails before the model” is a useful debugging reminder, not a fact. The model can still ignore, distort, or overgeneralize evidence that reached its context.
+
+## The production rule
+
+Begin with the smallest pipeline you can evaluate. Add one stage, rerun the same cases, inspect changed failures, and keep the stage only when the trade-off is worth it.
+
+Next: [evaluate retrieval and generation separately](../../evals/) or practice the [production RAG interview answer](../../interview/production-rag-pipeline/).
+
+[^rag-paper]: Lewis et al., [“Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks”](https://arxiv.org/abs/2005.11401), introduced the RAG formulation using retrieved external memory.
+[^azure-rag]: Microsoft, [“Retrieval-augmented generation in Azure AI Search”](https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview).
+[^hybrid]: Elastic, [hybrid search](https://www.elastic.co/docs/solutions/search/hybrid-search) and [reciprocal rank fusion](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/reciprocal-rank-fusion).
+[^rewrite]: Microsoft, [query rewriting in Azure AI Search](https://learn.microsoft.com/en-us/azure/search/semantic-how-to-query-rewrite). The documented feature is vendor-specific and currently preview; the keep-and-test principle is general.
+[^rerank]: Cohere, [Rerank overview](https://docs.cohere.com/docs/rerank-overview).

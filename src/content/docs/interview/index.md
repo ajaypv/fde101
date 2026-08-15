@@ -2,7 +2,7 @@
 title: Interview room
 description: Practice explaining RAG, LangChain, LangGraph, evaluation, and FDE trade-offs with concrete reasoning.
 contentType: interview
-minutes: 6
+minutes: 8
 topics: [interview, FDE, RAG, LangGraph]
 lastVerified: 2026-08-15
 sidebar:
@@ -19,7 +19,10 @@ Good answers reveal how you reason. Define the term, give a tiny example, name a
 4. How do you enforce document permissions during retrieval?
 5. Why can adding more chunks make an answer worse?
 
-Read: [How would you debug a bad RAG answer?](./rag-debugging/)
+Practice the full answers:
+
+- [Walk through a production RAG pipeline](./production-rag-pipeline/)
+- [How would you debug a bad RAG answer?](./rag-debugging/)
 
 ## LangChain and LangGraph
 
@@ -29,7 +32,10 @@ Read: [How would you debug a bad RAG answer?](./rag-debugging/)
 4. Where would you place human approval in a graph?
 5. How do you retry a tool node without duplicating a side effect?
 
-Read: [State versus memory](./langgraph-state-vs-memory/)
+Practice the full answers:
+
+- [Agent or workflow—which should you use?](./agent-vs-workflow/)
+- [State versus memory](./langgraph-state-vs-memory/)
 
 ## Evaluation
 
@@ -38,6 +44,8 @@ Read: [State versus memory](./langgraph-state-vs-memory/)
 3. What should be measured separately in a RAG system?
 4. How do you turn production failures into evaluation cases?
 5. Which metrics become release gates, and why?
+
+Practice: [How do you evaluate a RAG system?](./evaluate-rag-system/)
 
 ## FDE judgment
 
