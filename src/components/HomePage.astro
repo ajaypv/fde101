@@ -1,4 +1,6 @@
 ---
+import BookContents from './BookContents.astro';
+
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const withBase = (path: string) => `${basePath}${path}`;
 
@@ -507,42 +509,117 @@ const terms = [
 ];
 ---
 
-<main class="fde-home">
-	<div class="index-meta">
-		<span>Field index</span>
-		<span>{terms.length} essential terms</span>
-	</div>
+<div class="fde-home">
+	<header class="reading-choice" aria-labelledby="reading-choice-title">
+		<div class="reading-choice-copy">
+			<p>Two ways into the same material</p>
+			<h2 id="reading-choice-title">Choose how you want to read</h2>
+		</div>
+		<div class="reading-choice-actions" role="group" aria-label="Reading experience">
+			<button type="button" aria-controls="field-index" aria-pressed="true" data-reading-button="index">
+				<strong>Field index</strong>
+				<span>Find one term quickly</span>
+			</button>
+			<button type="button" aria-controls="book-chapters" aria-pressed="false" data-reading-button="book">
+				<strong>Book chapters</strong>
+				<span>Read the ideas in order</span>
+			</button>
+		</div>
+		<p class="visually-hidden" aria-live="polite" data-reading-status>Showing the field index.</p>
+	</header>
 
-	<div class="index-sort-row" data-sort-controls hidden>
-		<label for="term-sort">Sort</label>
-		<select id="term-sort" name="term-sort" data-term-sort>
-			<option value="curated">Curated order</option>
-			<option value="alphabetical">A–Z by title</option>
-		</select>
-		<span class="visually-hidden" aria-live="polite" data-sort-status>Showing curated order.</span>
-	</div>
+	<section id="field-index" aria-label="Field index" data-reading-panel="index">
+		<div class="index-meta">
+			<span>Field index</span>
+			<span>{terms.length} essential terms</span>
+		</div>
 
-	<nav class="term-grid" aria-label="AI field index" data-term-grid>
-		{terms.map((term, index) => (
-			<a class="term-entry" href={withBase(term.href)} data-term-title={term.short ?? term.name}>
-				<span class="term-number" data-term-number>{String(index + 1).padStart(2, '0')}</span>
-				<span class="term-category">{term.category}</span>
-				<strong class="term-name">{term.short ?? term.name}</strong>
-				{term.short && <span class="term-long-name">{term.name}</span>}
-				<p>{term.description}</p>
-				<span class="term-action">Read note&nbsp; ↗</span>
-			</a>
-		))}
-	</nav>
+		<div class="index-sort-row" data-sort-controls hidden>
+			<label for="term-sort">Sort</label>
+			<select id="term-sort" name="term-sort" data-term-sort>
+				<option value="curated">Curated order</option>
+				<option value="alphabetical">A–Z by title</option>
+			</select>
+			<span class="visually-hidden" aria-live="polite" data-sort-status>Showing curated order.</span>
+		</div>
 
-	<footer class="index-footer">
-		<a href={withBase('/start-here/')}>Reading paths</a>
-		<a href={withBase('/interview/')}>Interview questions</a>
-		<a href={withBase('/field-guide/production-rag-checklist/')}>Production checklist</a>
-	</footer>
-</main>
+		<nav class="term-grid" aria-label="AI field index" data-term-grid>
+			{terms.map((term, index) => (
+				<a class="term-entry" href={withBase(term.href)} data-term-title={term.short ?? term.name}>
+					<span class="term-number" data-term-number>{String(index + 1).padStart(2, '0')}</span>
+					<span class="term-category">{term.category}</span>
+					<strong class="term-name">{term.short ?? term.name}</strong>
+					{term.short && <span class="term-long-name">{term.name}</span>}
+					<p>{term.description}</p>
+					<span class="term-action">Read note&nbsp; ↗</span>
+				</a>
+			))}
+		</nav>
+
+		<footer class="index-footer">
+			<a href={withBase('/start-here/')}>Reading paths</a>
+			<a href={withBase('/interview/')}>Interview questions</a>
+			<a href={withBase('/field-guide/production-rag-checklist/')}>Production checklist</a>
+		</footer>
+	</section>
+
+	<section id="book-chapters" aria-label="Book chapters" data-reading-panel="book" hidden>
+		<BookContents />
+	</section>
+</div>
 
 <script>
+	const readingButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-reading-button]'));
+	const readingPanels = Array.from(document.querySelectorAll<HTMLElement>('[data-reading-panel]'));
+	const readingStatus = document.querySelector<HTMLElement>('[data-reading-status]');
+	const readingViews = new Set(['index', 'book']);
+	const preferenceKey = 'fde101-reading-view';
+
+	const applyReadingView = (view: string, remember = false) => {
+		const safeView = readingViews.has(view) ? view : 'index';
+
+		readingButtons.forEach((button) => {
+			button.setAttribute('aria-pressed', String(button.dataset.readingButton === safeView));
+		});
+		readingPanels.forEach((panel) => {
+			panel.hidden = panel.dataset.readingPanel !== safeView;
+		});
+
+		if (readingStatus) {
+			readingStatus.textContent = safeView === 'book'
+				? 'Showing the book chapters.'
+				: 'Showing the field index.';
+		}
+
+		if (remember) {
+			try {
+				localStorage.setItem(preferenceKey, safeView);
+			} catch {
+				// The choice still works when browser storage is unavailable.
+			}
+			history.replaceState(null, '', `${location.pathname}${location.search}#${safeView}`);
+		}
+	};
+
+	if (readingButtons.length && readingPanels.length) {
+		let initialView = location.hash === '#book' || location.hash === '#index'
+			? location.hash.slice(1)
+			: 'index';
+
+		if (initialView === 'index' && !location.hash) {
+			try {
+				initialView = localStorage.getItem(preferenceKey) ?? 'index';
+			} catch {
+				initialView = 'index';
+			}
+		}
+
+		applyReadingView(initialView);
+		readingButtons.forEach((button) => {
+			button.addEventListener('click', () => applyReadingView(button.dataset.readingButton ?? 'index', true));
+		});
+	}
+
 	const grid = document.querySelector<HTMLElement>('[data-term-grid]');
 	const controls = document.querySelector<HTMLElement>('[data-sort-controls]');
 	const select = document.querySelector<HTMLSelectElement>('[data-term-sort]');
@@ -586,6 +663,93 @@ const terms = [
 </script>
 
 <style>
+	.reading-choice {
+		align-items: end;
+		border-bottom: 3px double var(--rule-heavy);
+		display: grid;
+		gap: clamp(1.5rem, 4vw, 4rem);
+		grid-template-columns: minmax(15rem, 0.8fr) minmax(22rem, 1.2fr);
+		margin-inline: auto;
+		max-width: 68rem;
+		padding-block: 1.1rem 1.5rem;
+	}
+
+	.reading-choice-copy > p {
+		font-family: var(--sans);
+		font-size: 0.66rem;
+		font-weight: 720;
+		letter-spacing: 0.13em;
+		margin: 0;
+		text-transform: uppercase;
+	}
+
+	.reading-choice-copy h2 {
+		border: 0;
+		font-family: var(--serif);
+		font-size: clamp(1.65rem, 3.3vw, 2.5rem);
+		line-height: 1;
+		margin: 0.5rem 0 0;
+		padding: 0;
+	}
+
+	.reading-choice-actions {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.reading-choice-actions button {
+		appearance: none;
+		background: var(--paper);
+		border: 1px solid var(--rule-heavy);
+		border-radius: 0;
+		color: var(--ink);
+		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		font-family: var(--sans);
+		gap: 0.25rem;
+		min-height: 4.6rem;
+		padding: 0.8rem 1rem;
+		text-align: left;
+	}
+
+	.reading-choice-actions button + button {
+		border-inline-start: 0;
+	}
+
+	.reading-choice-actions button[aria-pressed='true'] {
+		background: var(--ink);
+		color: var(--paper);
+	}
+
+	.reading-choice-actions button:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 3px;
+		position: relative;
+		z-index: 1;
+	}
+
+	.reading-choice-actions strong {
+		font-size: 0.82rem;
+		font-weight: 760;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
+	.reading-choice-actions span {
+		font-family: var(--serif);
+		font-size: 0.95rem;
+		line-height: 1.2;
+	}
+
+	[data-reading-panel] {
+		padding-top: clamp(2rem, 5vw, 4rem);
+	}
+
+	[data-reading-panel][hidden] {
+		display: none;
+	}
+
 	.index-sort-row {
 		align-items: center;
 		border-bottom: 1px solid var(--rule);
@@ -631,6 +795,20 @@ const terms = [
 	}
 
 	@media (max-width: 36rem) {
+		.reading-choice {
+			align-items: stretch;
+			grid-template-columns: 1fr;
+		}
+
+		.reading-choice-actions {
+			grid-template-columns: 1fr;
+		}
+
+		.reading-choice-actions button + button {
+			border-block-start: 0;
+			border-inline-start: 1px solid var(--rule-heavy);
+		}
+
 		.index-sort-row {
 			justify-content: space-between;
 		}

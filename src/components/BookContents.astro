@@ -1,0 +1,388 @@
+---
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+const withBase = (path: string) => `${basePath}${path}`;
+
+const parts = [
+	{
+		label: 'Part One',
+		title: 'The model and its world',
+		introduction: 'Before we build a system around a model, we need an honest picture of what the model receives—and what it never sees unless we provide it.',
+		chapters: [
+			{
+				number: '01',
+				topic: 'LLM foundations',
+				title: 'The machine sees a window, not a world',
+				description: 'A language model can sound as though it remembers everything. It does not. It receives a finite packet of tokens, predicts what should follow, and loses the packet when the call ends. We begin by looking at that small, temporary world.',
+				href: '/foundations/llms/',
+			},
+			{
+				number: '02',
+				topic: 'Context engineering',
+				title: 'The work that happens before the prompt',
+				description: 'A polished instruction cannot repair missing facts, the wrong file, or an unsafe tool. The useful work happens earlier: choosing which evidence, history, rules, and capabilities should reach the model for this particular request.',
+				href: '/foundations/context-engineering/',
+			},
+		],
+	},
+	{
+		label: 'Part Two',
+		title: 'Giving an answer somewhere to stand',
+		introduction: 'Retrieval turns a fluent model into a reader with sources. The difficulty is not storing documents; it is preserving meaning and finding the right evidence under pressure.',
+		chapters: [
+			{
+				number: '03',
+				topic: 'RAG',
+				title: 'An answer with somewhere to stand',
+				description: 'A customer asks a question the model was never trained to answer. Instead of asking it to guess, we search our own material, place the best evidence beside the question, and require the answer to stay close to what was found.',
+				href: '/rag/',
+			},
+			{
+				number: '04',
+				topic: 'Production retrieval',
+				title: 'Search becomes an engineering system',
+				description: 'The demo worked because the answer was easy to find. Production is less kind: PDFs lose their tables, chunks split the needed sentence, filters hide the right record, and a plausible result outranks the correct one. This chapter follows each failure to its source.',
+				href: '/rag/production-retrieval/',
+			},
+			{
+				number: '05',
+				topic: 'Vector search',
+				title: 'Meaning becomes a coordinate',
+				description: 'An embedding gives a piece of text a location in a mathematical space. Nearby points may express similar ideas, but “near” is not the same as “true” or even “useful.” We learn what the distance can tell us—and what it cannot.',
+				href: '/rag/vector-search-foundations/',
+			},
+		],
+	},
+	{
+		label: 'Part Three',
+		title: 'When the model can act',
+		introduction: 'A model becomes an agent when its output can choose the next operation. That freedom is useful only when the surrounding application keeps a firm hand on permissions, state, and stopping rules.',
+		chapters: [
+			{
+				number: '06',
+				topic: 'Agent systems',
+				title: 'The next step is no longer fixed',
+				description: 'A workflow follows the route we drew. An agent chooses a route while it is moving. We examine when that choice earns its cost, how a tool result changes the next decision, and why the predictable parts should remain ordinary code.',
+				href: '/agents/',
+			},
+			{
+				number: '07',
+				topic: 'MCP and tools',
+				title: 'A tool is a permission, not merely a function',
+				description: 'A clear name and schema help a model choose the right tool. They do not decide whether the tool should be available, whether the caller may read the data, or whether a human must approve the action. Those decisions belong to the host application.',
+				href: '/agents/mcp-tool-selection/',
+			},
+		],
+	},
+	{
+		label: 'Part Four',
+		title: 'Two frameworks, two kinds of help',
+		introduction: 'LangChain gives common names to the pieces of an AI application. LangGraph makes the movement between those pieces explicit. Neither framework replaces the architecture you still have to choose.',
+		chapters: [
+			{
+				number: '08',
+				topic: 'LangChain',
+				title: 'A shared vocabulary for the application',
+				description: 'Messages, models, tools, retrievers, and runnables appear in nearly every AI application. LangChain gives them compatible interfaces. We learn those interfaces one at a time, then decide where the abstraction saves work and where plain Python says more.',
+				href: '/langchain/',
+			},
+			{
+				number: '09',
+				topic: 'LangGraph',
+				title: 'Give the loop a map',
+				description: 'Once a workflow branches, waits, retries, or asks a person for help, the hidden loop becomes hard to trust. LangGraph draws that loop as state, nodes, and edges, then saves enough of the journey to continue after the process stops.',
+				href: '/langgraph/',
+			},
+		],
+	},
+	{
+		label: 'Part Five',
+		title: 'Evidence after the answer',
+		introduction: 'A convincing response is not proof. We need tests that isolate where quality changed and traces that show what the system actually did for a real request.',
+		chapters: [
+			{
+				number: '10',
+				topic: 'Evaluation',
+				title: 'Trust begins with a test case',
+				description: 'A RAG system has two chances to fail: it may retrieve the wrong evidence, or it may misuse the right evidence. We measure those jobs separately, compare changes on the same cases, and stop calling a result “better” merely because it reads well.',
+				href: '/evals/',
+			},
+			{
+				number: '11',
+				topic: 'LLMOps',
+				title: 'What the system did, and why',
+				description: 'When a production answer fails, the final text is only the last page of the story. The trace must reveal the query, retrieved evidence, tool calls, latency, tokens, model version, and policy decisions that produced it.',
+				href: '/llmops/',
+			},
+		],
+	},
+	{
+		label: 'Part Six',
+		title: 'The boundary around the system',
+		introduction: 'The final chapters ask a practical question: what must remain true when the model misunderstands the request, the evidence contains instructions, or an external service fails?',
+		chapters: [
+			{
+				number: '12',
+				topic: 'Prompt injection',
+				title: 'The instruction hidden inside the evidence',
+				description: 'An email, webpage, or retrieved document may contain words that sound like commands. The model cannot reliably decide which words deserve authority. We therefore separate instructions from data and enforce access and tool policy outside the prompt.',
+				href: '/security/prompt-injection/',
+			},
+			{
+				number: '13',
+				topic: 'Production delivery',
+				title: 'The morning after the demo',
+				description: 'The useful question is not whether the demo answered once. It is whether the team can release a change, detect a regression, explain a failure, control cost, protect customer data, and recover without turning every incident into an investigation.',
+				href: '/field-guide/production-rag-checklist/',
+			},
+		],
+	},
+] as const;
+---
+
+<article class="book-contents" aria-labelledby="book-title">
+	<header class="book-opening">
+		<div class="book-title-block">
+			<p class="book-kicker">A reader’s edition</p>
+			<h2 id="book-title">Building AI systems that deserve to be trusted</h2>
+		</div>
+		<div class="book-opening-copy">
+			<p>Most AI systems look simple from the chat box. A question goes in; an answer comes back. The difficult work is hidden between those two moments.</p>
+			<p>This book opens that hidden space. It follows information as it becomes context, context as it becomes an answer, and an answer as it becomes an action. Read straight through for the full argument, or begin with the part closest to the system you are building.</p>
+		</div>
+	</header>
+
+	<div class="book-parts">
+		{parts.map((part) => (
+			<section class="book-part" aria-labelledby={`book-${part.label.toLowerCase().replace(' ', '-')}`}>
+				<header class="book-part-heading">
+					<p>{part.label}</p>
+					<div>
+						<h3 id={`book-${part.label.toLowerCase().replace(' ', '-')}`}>{part.title}</h3>
+						<p>{part.introduction}</p>
+					</div>
+				</header>
+
+				<ol class="book-chapter-list">
+					{part.chapters.map((chapter) => (
+						<li class="book-chapter">
+							<span class="book-chapter-number" aria-hidden="true">{chapter.number}</span>
+							<div class="book-chapter-copy">
+								<p class="book-chapter-topic">{chapter.topic}</p>
+								<h4>{chapter.title}</h4>
+								<p>{chapter.description}</p>
+							</div>
+							<a href={withBase(chapter.href)} aria-label={`Read chapter ${chapter.number}: ${chapter.title}`}>
+								Read chapter&nbsp; ↗
+							</a>
+						</li>
+					))}
+				</ol>
+			</section>
+		))}
+	</div>
+
+	<footer class="book-closing">
+		<p>The field index remains available whenever you need one definition, one API, or one interview answer without reading the chapters around it.</p>
+		<a href={withBase('/start-here/')}>Choose a shorter reading path&nbsp; ↗</a>
+	</footer>
+</article>
+
+<style>
+	.book-contents {
+		margin-inline: auto;
+		max-width: 68rem;
+	}
+
+	.book-opening {
+		border-block: 3px double var(--rule-heavy);
+		display: grid;
+		gap: clamp(2rem, 6vw, 6rem);
+		grid-template-columns: minmax(13rem, 0.8fr) minmax(0, 1.35fr);
+		padding-block: clamp(2.5rem, 7vw, 5.5rem);
+	}
+
+	.book-kicker,
+	.book-part-heading > p,
+	.book-chapter-topic {
+		font-family: var(--sans);
+		font-size: 0.68rem;
+		font-weight: 720;
+		letter-spacing: 0.13em;
+		margin: 0;
+		text-transform: uppercase;
+	}
+
+	.book-title-block h2 {
+		border: 0;
+		font-size: clamp(2.6rem, 6vw, 5.1rem);
+		line-height: 0.96;
+		margin: 0.65rem 0 0;
+		max-width: 12ch;
+		padding: 0;
+	}
+
+	.book-opening-copy {
+		align-self: end;
+		font-family: var(--serif);
+		font-size: clamp(1.2rem, 2.1vw, 1.55rem);
+		line-height: 1.55;
+		max-width: 34em;
+	}
+
+	.book-opening-copy p {
+		margin: 0;
+	}
+
+	.book-opening-copy p + p {
+		margin-top: 1.1em;
+	}
+
+	.book-opening-copy p:first-child::first-letter {
+		float: left;
+		font-size: 4.2em;
+		font-weight: 700;
+		line-height: 0.78;
+		margin: 0.09em 0.1em 0 0;
+	}
+
+	.book-part {
+		margin-top: clamp(4rem, 10vw, 8rem);
+	}
+
+	.book-part-heading {
+		border-bottom: 2px solid var(--rule-heavy);
+		display: grid;
+		gap: 1.5rem;
+		grid-template-columns: minmax(6rem, 0.35fr) minmax(0, 1.65fr);
+		padding-bottom: 1.5rem;
+	}
+
+	.book-part-heading h3 {
+		font-size: clamp(2rem, 4.2vw, 3.2rem);
+		line-height: 1;
+		margin: 0;
+	}
+
+	.book-part-heading div > p {
+		font-family: var(--serif);
+		font-size: 1.08rem;
+		line-height: 1.55;
+		margin: 0.8rem 0 0;
+		max-width: 46rem;
+	}
+
+	.book-chapter-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.book-chapter {
+		align-items: start;
+		border-bottom: 1px solid var(--rule);
+		display: grid;
+		gap: clamp(1.25rem, 3vw, 2.5rem);
+		grid-template-columns: 4rem minmax(0, 1fr) auto;
+		padding-block: clamp(2rem, 5vw, 3.5rem);
+	}
+
+	.book-chapter-number {
+		font-family: var(--serif);
+		font-size: 2rem;
+		font-variant-numeric: lining-nums tabular-nums;
+		line-height: 1;
+	}
+
+	.book-chapter-copy h4 {
+		font-family: var(--serif);
+		font-size: clamp(1.65rem, 3.2vw, 2.35rem);
+		font-weight: 690;
+		letter-spacing: -0.026em;
+		line-height: 1.05;
+		margin: 0.45rem 0 0;
+	}
+
+	.book-chapter-copy > p:last-child {
+		font-family: var(--serif);
+		font-size: 1.08rem;
+		line-height: 1.62;
+		margin: 1rem 0 0;
+		max-width: 52rem;
+	}
+
+	.book-chapter > a,
+	.book-closing a {
+		align-self: end;
+		color: var(--ink);
+		font-family: var(--sans);
+		font-size: 0.68rem;
+		font-weight: 720;
+		letter-spacing: 0.09em;
+		padding-bottom: 0.3rem;
+		text-decoration-color: var(--ink);
+		text-underline-offset: 0.38rem;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+
+	.book-closing {
+		border-block: 3px double var(--rule-heavy);
+		display: flex;
+		gap: 2rem;
+		justify-content: space-between;
+		margin-top: clamp(4rem, 10vw, 8rem);
+		padding-block: 2rem;
+	}
+
+	.book-closing p {
+		font-family: var(--serif);
+		font-size: 1.08rem;
+		line-height: 1.55;
+		margin: 0;
+		max-width: 42rem;
+	}
+
+	@media (max-width: 50rem) {
+		.book-opening,
+		.book-part-heading {
+			grid-template-columns: 1fr;
+		}
+
+		.book-title-block h2 {
+			max-width: 15ch;
+		}
+
+		.book-chapter {
+			grid-template-columns: 3rem minmax(0, 1fr);
+		}
+
+		.book-chapter > a {
+			grid-column: 2;
+			justify-self: start;
+		}
+	}
+
+	@media (max-width: 36rem) {
+		.book-opening {
+			padding-block: 2.5rem;
+		}
+
+		.book-title-block h2 {
+			font-size: clamp(2.45rem, 12vw, 3.65rem);
+		}
+
+		.book-chapter {
+			grid-template-columns: 1fr;
+		}
+
+		.book-chapter-number,
+		.book-chapter > a {
+			grid-column: 1;
+		}
+
+		.book-closing {
+			align-items: flex-start;
+			flex-direction: column;
+		}
+	}
+</style>
