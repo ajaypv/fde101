@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import mermaid from 'astro-mermaid';
 import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 
@@ -17,6 +18,19 @@ export default defineConfig({
 	site,
 	base,
 	integrations: [
+		mermaid({
+			theme: 'neutral',
+			autoTheme: true,
+			mermaidConfig: {
+				securityLevel: 'strict',
+				fontFamily: 'Source Sans 3 Variable, Helvetica Neue, Arial, sans-serif',
+				flowchart: {
+					curve: 'linear',
+					nodeSpacing: 38,
+					rankSpacing: 48,
+				},
+			},
+		}),
 		starlight({
 			title: 'FDE 101',
 			description: 'A practical field guide to LLMs, RAG, agents, evaluation, and delivery.',

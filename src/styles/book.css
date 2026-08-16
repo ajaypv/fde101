@@ -211,6 +211,38 @@ h1#_top {
 	overflow-x: auto;
 }
 
+pre.mermaid {
+	background: var(--surface) !important;
+	border: 1px solid var(--rule) !important;
+	border-radius: 0 !important;
+	font-family: var(--sans) !important;
+	margin-block: 2rem !important;
+}
+
+pre.mermaid :where(p, span, div) {
+	color: var(--ink) !important;
+	font-family: var(--sans) !important;
+}
+
+pre.mermaid .node :where(rect, circle, ellipse, polygon, path) {
+	fill: var(--paper) !important;
+	stroke: var(--ink) !important;
+}
+
+pre.mermaid :where(.flowchart-link, .edgePath path, .edge-pattern-solid) {
+	stroke: var(--ink) !important;
+}
+
+pre.mermaid marker path {
+	fill: var(--ink) !important;
+	stroke: var(--ink) !important;
+}
+
+pre.mermaid svg {
+	height: auto !important;
+	max-width: 100% !important;
+}
+
 .lesson-meta {
 	align-items: center;
 	color: var(--muted-ink);

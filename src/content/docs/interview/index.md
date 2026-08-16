@@ -19,7 +19,7 @@ There is no trustworthy public ranking of interview frequency. These questions r
 | --- | --- | --- |
 | 1 | Walk me through a production RAG pipeline end to end. | Ingestion, parsing, chunking, indexing, authorization, retrieval, reranking, context assembly, generation, citations, and tracing |
 | 2 | Where does RAG quality break? | Parsing, tables, chunk boundaries, stale data, permissions, query mismatch, candidate cutoff, reranking, packing, and generation |
-| 3 | How do you evaluate a RAG system? | Retrieval and generation separately, followed by end-to-end task success |
+| 3 | How do you evaluate a RAG system? | Retrieval, generation, end-to-end task success, and production behavior as four separate layers |
 | 4 | Explain Recall@k, Precision@k, and MRR. | Formulas, explicit denominators, and one tiny ranked-list example |
 | 5 | How would you choose a chunking strategy? | Answer units, document structure, overlap, metadata, parent-child retrieval, and labeled evaluations |
 | 6 | Why use hybrid search instead of only vector search? | Keyword search protects exact identifiers; vectors find paraphrases; fusion combines their candidate lists |

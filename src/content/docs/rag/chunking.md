@@ -1,11 +1,11 @@
 ---
-title: Chunking without folklore
-description: Choose RAG chunk boundaries from the answer unit and measure whether retrieval preserves enough context.
+title: Chunking without cutting away meaning
+description: Compare fixed-size, recursive, structure-aware, semantic, and parent-child chunking with one airline-policy example.
 contentType: lesson
-level: Intermediate
-minutes: 9
-topics: [RAG, chunking, retrieval]
-lastVerified: 2026-08-15
+level: Beginner
+minutes: 18
+topics: [RAG, chunking, retrieval, parent-child]
+lastVerified: 2026-08-16
 sidebar:
   order: 2
 sources:
@@ -13,97 +13,271 @@ sources:
     url: https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-chunking-phase
     publisher: Microsoft
     type: official-doc
+  - title: RecursiveCharacterTextSplitter
+    url: https://docs.langchain.com/oss/python/integrations/splitters/recursive_text_splitter
+    publisher: LangChain
+    type: official-doc
   - title: Text splitters
     url: https://docs.langchain.com/oss/python/integrations/splitters/index
     publisher: LangChain
     type: official-doc
 ---
 
-Chunking converts source documents into the units your retriever can return. There is no universally correct character count.
+We do not usually search an entire 300-page document at once.
 
-## Begin with the answer unit
+We break it into smaller pieces.
 
-Imagine a support page with three headings: **Eligibility**, **Required documents**, and **Approval time**. A paragraph-sized chunk may preserve one complete answer. A fixed slice through the middle of two headings may not.
+These pieces are called **chunks**.
 
-Prefer boundaries that preserve meaning:
+But there is a problem.
 
-- headings and their body text;
-- list introductions with their list items;
-- table headers with the matching rows;
-- code signatures with their explanation;
-- document identity and access metadata on every chunk.
+If a chunk is too small, it may lose important information.
 
-## One document, five possible strategies
+If a chunk is too large, it may contain several unrelated topics.
 
-Start with the shape of the source, not a fashionable splitter.
+> **Mental model**
+>
+> A useful chunk can be found on its own and still preserves the meaning needed to answer.
 
-| Strategy | A sensible use | Main risk |
+## Begin with the answer, not a token count
+
+Consider this fictional airline policy:
+
+> Hotel accommodation is provided only when the disruption requires an overnight stay and the disruption was caused by the airline.
+
+The passenger asks:
+
+> My flight is delayed by six hours. Do I get a hotel?
+
+The answer needs both policy conditions.
+
+Now imagine cutting the policy here:
+
+```text
+Chunk A:
+Hotel accommodation is provided when an overnight stay is required.
+
+Chunk B:
+The disruption must also have been caused by the airline.
+```
+
+Chunk A looks like a complete rule.
+
+It is only half of the rule.
+
+If search returns Chunk A alone, the model may give the wrong answer.
+
+This is why there is no universal correct chunk size.
+
+The right starting point is the **answer unit**. The answer unit is the smallest source span that contains the complete answer, including its conditions and exceptions.
+
+## Five strategies
+
+| Strategy | Simple explanation | Main strength | Main problem |
+| --- | --- | --- | --- |
+| Fixed-size | Cut after a configured number of tokens | Simple and predictable | Can cut an idea in half |
+| Recursive | Try paragraphs and sentences before smaller boundaries | Preserves natural boundaries | Understands formatting, not domain meaning |
+| Structure-aware | Follow headings, sections, lists, tables, or code blocks | Preserves the author's organization | Depends on parsing quality |
+| Semantic | Split when a model detects a change in topic | Can preserve topic coherence | Adds cost and variability |
+| Parent-child | Search a small chunk, then return a larger section | Combines precision and context | Can duplicate content and spend more tokens |
+
+These strategies are candidates for an experiment. They are not a ranking from worst to best.
+
+## Fixed-size chunking
+
+Fixed-size chunking cuts text after a chosen number of tokens or characters.
+
+```text
+Chunk size: 350 tokens
+Overlap: 50 tokens
+```
+
+### Why teams start here
+
+- It is easy to implement.
+- It has predictable storage and embedding cost.
+- It creates a useful baseline for comparison.
+- It works when the source has no reliable structure.
+
+### What can go wrong
+
+A fixed boundary does not know where an idea ends.
+
+It may separate a rule from its exception. It may also separate a table header from its rows.
+
+Overlap reduces some boundary failures. It does not understand which facts belong together.
+
+Use fixed-size chunking as a baseline. Do not assume that it is production-ready because it is common in tutorials.
+
+## Recursive chunking
+
+Recursive chunking tries larger natural boundaries first.
+
+It may try this order:
+
+1. Paragraph break.
+2. Line break.
+3. Sentence boundary.
+4. Space.
+5. Character.
+
+If a paragraph is small enough, the splitter keeps it.
+
+If it is too large, the splitter tries the next separator.
+
+LangChain's `RecursiveCharacterTextSplitter` follows this general approach.[^recursive]
+
+### Main advantage
+
+It usually produces more natural pieces than cutting at an exact character position.
+
+### Main limitation
+
+It recognizes separators.
+
+It does not know that two paragraphs form one legal condition.
+
+For unstructured prose, recursive chunking is a useful general baseline. For policies and manuals, compare it with structure-aware splitting.
+
+## Structure-aware chunking
+
+Structure-aware chunking follows the document's organization.
+
+```text
+Passenger care
+  ├─ Meal vouchers
+  ├─ Ground transportation
+  └─ Hotel accommodation
+```
+
+The complete “Hotel accommodation” section becomes one meaningful unit.
+
+Microsoft's chunking guidance recommends using document structure when the parser can preserve it.[^microsoft-chunking]
+
+### Main advantage
+
+The chunks follow how the author grouped the information.
+
+This works well for:
+
+- policies and contracts;
+- books and manuals;
+- Markdown and HTML;
+- API documentation;
+- source code;
+- well-parsed PDFs.
+
+### Main limitation
+
+The strategy depends on parsing quality.
+
+A PDF may look structured to a person while exposing no useful heading information to the parser.
+
+A section may also be too large. In that case, preserve the section as a parent and create smaller child chunks inside it.
+
+## Semantic chunking
+
+Some documents change topics without headings.
+
+Semantic chunking compares nearby sentences or paragraphs. It creates a boundary when their representations change enough.
+
+```text
+Paragraphs 1–3: hotel eligibility
+Paragraphs 4–5: reimbursement limits
+Paragraphs 6–8: submitting a claim
+```
+
+### Main advantage
+
+It can find topic boundaries that formatting does not show.
+
+### Main limitation
+
+It adds a model-dependent step to ingestion.
+
+The boundaries may change when the model or threshold changes. It also costs more than splitting on existing structure.
+
+Semantic chunking is not the same as semantic search.
+
+| Concept | When it happens | Purpose |
 | --- | --- | --- |
-| Fixed tokens with overlap | Logs, transcripts, and uniform prose with few reliable headings | A window can cut a rule from its exception |
-| Sentence or paragraph boundaries | Emails, reviews, FAQs, and short prose | One answer may span several paragraphs |
-| Structure-aware chunks | Policies, manuals, Markdown, HTML, API docs, and well-parsed PDFs | A long section can still exceed the useful answer size |
-| Parent-child retrieval | Long sections where search needs precision but the model needs wider context | Returning the full parent can add unrelated text |
-| Semantic boundaries | Prose whose topic changes are real but not marked by structure | More processing, less predictable boundaries, and no guarantee of better retrieval |
+| Semantic chunking | During ingestion | Decide where to divide a document |
+| Semantic or vector search | During retrieval | Find text with related meaning |
 
-Structure-aware splitting is a good first candidate when headings, lists, tables, or code blocks survive parsing. Microsoft’s chunking guidance likewise starts with document structure, while LangChain documents structure-based splitters for Markdown, HTML, JSON, and code.[^microsoft-chunking][^langchain-splitters]
+Test semantic chunking only when the source lacks useful structure or topic boundaries are a measured problem.
 
-## Worked example: keep the condition with the promise
+## Parent-child chunking
 
-An airline policy contains this section:
+Small chunks are easier to match precisely.
 
-```text
-## Hotel accommodation
+Large chunks preserve more context.
 
-We provide a hotel only when the delay requires an overnight stay
-and the disruption was caused by the airline.
+Parent-child retrieval uses both.
 
-## Meal vouchers
-
-We provide a meal voucher after a delay of three hours.
+```mermaid
+flowchart TD
+    Q["Passenger question"] --> S["Search the small child chunks"]
+    S --> C["Match: eligibility conditions"]
+    C --> P["Fetch parent: Hotel accommodation"]
+    P --> E["Return the complete useful context"]
 ```
 
-The passenger asks, “My flight is delayed by six hours. Do I get a hotel?”
+The system searches the smaller children.
 
-A fixed boundary can produce two incomplete chunks:
+When a child matches, it can return the larger parent section.
 
-```text
-Chunk A: We provide a hotel only when the delay requires an overnight stay
-Chunk B: and the disruption was caused by the airline. Meal vouchers ...
-```
+### Main advantage
 
-If retrieval returns only Chunk A, the model may miss the cause requirement. If it returns only Chunk B, the model may not know what the condition controls.
+The child improves search precision. The parent restores the surrounding rule.
 
-A structure-aware chunk keeps the answer unit together:
+### Main limitation
 
-```text
-section: Hotel accommodation
-text: We provide a hotel only when the delay requires an overnight stay
-      and the disruption was caused by the airline.
-metadata: source=passenger-care-policy, version=2026-07, access=public
-```
+Several children may point to the same parent.
 
-Now the model has both conditions. The correct response is not an automatic yes: six hours alone does not establish an overnight stay or an airline-controlled cause.
+The context builder must remove duplicate parents. It must also avoid returning a large section when the child already contains enough evidence.
 
 ## A small structure-aware splitter
 
-This example splits Markdown on level-two headings and repeats the heading in the searchable text. It is intentionally small enough to inspect. A production parser must also preserve tables, lists, page references, document versions, and access-control metadata.
+This example keeps a Markdown heading with its section body.
 
-```python title="structure_aware_chunking.py"
-from pathlib import Path
+It is small enough to inspect.
+
+```python title="src/examples/rag/structure_aware_chunking.py"
+from dataclasses import dataclass
 
 
-def split_markdown_sections(text: str) -> list[dict[str, str]]:
-    chunks: list[dict[str, str]] = []
+@dataclass(frozen=True)
+class Chunk:
+    section: str
+    text: str
+    source_id: str
+    version: str
+    access: str
+
+
+def split_markdown_sections(
+    text: str,
+    *,
+    source_id: str,
+    version: str,
+    access: str,
+) -> list[Chunk]:
+    chunks: list[Chunk] = []
     heading = "Document"
     body: list[str] = []
 
     def save_section() -> None:
         section_text = "\n".join(body).strip()
         if section_text:
-            chunks.append({
-                "section": heading,
-                "text": f"{heading}\n{section_text}",
-            })
+            chunks.append(
+                Chunk(
+                    section=heading,
+                    text=f"{heading}\n{section_text}",
+                    source_id=source_id,
+                    version=version,
+                    access=access,
+                )
+            )
 
     for line in text.splitlines():
         if line.startswith("## "):
@@ -117,62 +291,110 @@ def split_markdown_sections(text: str) -> list[dict[str, str]]:
     return chunks
 
 
-policy = Path("passenger-care-policy.md").read_text(encoding="utf-8")
-for chunk in split_markdown_sections(policy):
+POLICY = """\
+## Hotel accommodation
+
+We provide a hotel only when the delay requires an overnight stay
+and the disruption was caused by the airline.
+"""
+
+chunks = split_markdown_sections(
+    POLICY,
+    source_id="passenger-care-policy",
+    version="2026-07",
+    access="public",
+)
+for chunk in chunks:
     print(chunk)
 ```
 
+The production version must also preserve tables, lists, source positions, versions, and access metadata.
+
 Runnable copy: [`src/examples/rag/structure_aware_chunking.py`](https://github.com/ajaypv/fde101/blob/main/src/examples/rag/structure_aware_chunking.py).
 
-## Overlap reduces one risk and creates another
+## Overlap is a trade-off
+
+Overlap repeats text on both sides of a boundary.
+
+It can keep a condition close to the rule it qualifies.
 
 ```text
-Source:      Returns are allowed for 30 days | except final-sale items.
+Source:
+Hotel stays are covered after an overnight delay | except weather disruptions.
 
-No overlap: [Returns are allowed for 30 days] [except final-sale items]
-Risk:        the rule is retrieved without its exception
+No overlap:
+[Hotel stays are covered after an overnight delay]
+[except weather disruptions]
 
-Large overlap:
-             [Returns are allowed ... except final-sale items]
-             [allowed ... except final-sale items]
-Risk:        near-duplicates occupy two result slots
+With overlap:
+[Hotel stays are covered ... except weather disruptions]
+[overnight delay ... except weather disruptions]
 ```
 
-Overlap cannot guarantee that an idea stays intact. Prefer structure-aware boundaries first, then add and tune enough overlap to improve measured retrieval without flooding the context with duplicates.
+Too little overlap can lose boundary information.
 
-## Tune three variables together
+Too much overlap fills the result list with near-duplicates.
+
+Prefer meaningful boundaries first. Add overlap only when the evaluation shows that it helps.
+
+## Tune size, overlap, and retrieval depth together
 
 | Variable | Too low | Too high |
 | --- | --- | --- |
-| Chunk size | Missing explanation or qualifiers | Several topics compete inside one result |
-| Overlap | Boundary facts disappear | Duplicate results consume context |
-| Retrieved count, `k` | Relevant evidence is missed | Noise, latency, and token use increase |
+| Chunk size | Loses explanations or qualifiers | Mixes several topics |
+| Overlap | Loses boundary facts | Creates duplicate results |
+| Retrieved count, `k` | Misses useful evidence | Adds noise, latency, and tokens |
 
-## A practical experiment
+Changing only the chunk size can hide the real trade-off.
 
-Create 30–50 representative questions and label the passages that can answer them. Compare a few chunking strategies using recall at a fixed `k`, then inspect the misses. Do not choose by intuition alone.
+For example, larger chunks may improve Recall@5 while increasing token cost and reducing citation precision.
 
-Use the same evaluation cases for each candidate:
+## Run a controlled experiment
 
-1. **Parse once.** Save an inspectable representation so parser changes do not masquerade as chunking gains.
-2. **Define the answer unit.** Label the source span that contains a complete answer, including qualifications and exceptions.
-3. **Build candidates.** Compare a simple paragraph baseline with one or two strategies suited to the document structure.
-4. **Hold retrieval constant.** Use the same corpus snapshot, questions, embedding model, query transformation, and `k`.
-5. **Measure and inspect.** Compare Recall@k and Precision@k, then read the misses and near-duplicate results.
-6. **Check the whole system.** Confirm answer correctness, citation quality, latency, index size, and re-indexing cost before shipping.
+Start with 30–50 representative questions.
 
-If several pipeline components change together, you have measured the new bundle, not the isolated effect of chunking.
+Label the source spans that contain complete answers.
 
-## FDE questions
+Then compare a small set of candidates:
 
-- What is the smallest source unit a user would accept as a citation?
-- Are tables, diagrams, or code being flattened incorrectly?
-- Can a chunk retain source, section, tenant, and permission metadata?
-- Which document changes trigger re-indexing?
+```text
+Candidate A: fixed-size, 350 tokens, 50-token overlap
+Candidate B: recursive, 600 tokens, 80-token overlap
+Candidate C: structure-aware parent sections with 250-token children
+```
+
+These numbers are experiment inputs. They are not universal recommendations.
+
+Use this sequence:
+
+1. **Freeze the source snapshot.** Use the same documents and permissions.
+2. **Save the parsed representation.** Do not let parser changes look like chunking gains.
+3. **Label answer-bearing spans.** Chunk IDs will change across strategies.
+4. **Keep retrieval settings fixed.** Use the same query path, embedding model, and `k`.
+5. **Measure retrieval.** Compare Hit@k, Recall@k, Precision@k, and duplicate rate.
+6. **Read the misses.** Averages do not explain why a condition disappeared.
+7. **Check the full answer.** Measure correctness, groundedness, citations, latency, index size, and re-indexing cost.
+
+If chunking, embeddings, and reranking all change at once, the test measures the new bundle. It does not prove that chunking caused the gain.
+
+## Choose a starting point
+
+```mermaid
+flowchart TD
+    A["1. Inspect the document structure"] --> B["2. Use structure-aware chunks when headings survive"]
+    B --> C["3. Otherwise test recursive and fixed-size baselines"]
+    C --> D["4. Add parent-child retrieval when sections are too large"]
+    D --> E["5. Test semantic boundaries only for measured topic-shift misses"]
+    E --> F["6. Evaluate every candidate on the same questions"]
+```
+
+The diagram suggests a first experiment. The evaluation decides what ships.
 
 ## Interview answer in 30 seconds
 
-> I choose chunking from the answer unit and document structure, not from a universal token count. For a policy manual, I would keep each heading with its complete rule, list, table, exceptions, source identity, version, and ACL metadata. If a section is too long, I would search smaller child chunks and return a larger parent section. Then I would compare that strategy with a paragraph or fixed-token baseline on labeled questions, holding the corpus, query path, embedding model, and `k` constant. I would ship the strategy only if retrieval and end-to-end answer quality improve without unacceptable latency, storage, or citation costs.
+> I choose chunking from the answer unit and the document structure. Fixed-size chunking is a useful baseline, but it can split rules from their exceptions. Recursive chunking preserves natural separators. Structure-aware chunking works well when headings, tables, or code structure survive parsing. Semantic chunking can help when topic changes are not marked, but it costs more and is less predictable. For long sections, I search small child chunks and return a larger parent when the model needs context. I compare the candidates on labeled questions while holding the corpus, query path, embedding model, and `k` constant.
 
-[^microsoft-chunking]: Microsoft, [“Develop a RAG solution — chunking phase”](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-chunking-phase), recommends choosing approaches from document structure and testing alternatives for the use case.
-[^langchain-splitters]: LangChain, [“Text splitters”](https://docs.langchain.com/oss/python/integrations/splitters/index), documents token-, character-, and structure-based splitting approaches.
+Next: [search by words and meaning](./production-retrieval/) or return to the [complete RAG chapter](./).
+
+[^microsoft-chunking]: Microsoft, [“Develop a RAG solution — chunking phase”](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-chunking-phase), recommends choosing chunking approaches from document structure and testing alternatives for the use case.
+[^recursive]: LangChain, [“RecursiveCharacterTextSplitter”](https://docs.langchain.com/oss/python/integrations/splitters/recursive_text_splitter), documents the ordered-separator approach used by its recursive splitter.

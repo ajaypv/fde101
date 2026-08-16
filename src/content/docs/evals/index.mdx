@@ -3,9 +3,9 @@ title: Evaluation that changes decisions
 description: Measure retrieval, grounded answers, safety, latency, and cost with explicit denominators and release gates.
 contentType: lesson
 level: Intermediate
-minutes: 22
+minutes: 26
 topics: [evaluation, precision, recall, RAG]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 1
 sources:
@@ -25,6 +25,10 @@ sources:
     url: https://aclanthology.org/2024.eacl-demo.16/
     publisher: Association for Computational Linguistics
     type: paper
+  - title: Knowledge-base evaluation metrics
+    url: https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base-evaluation-metrics.html
+    publisher: Amazon Web Services
+    type: official-doc
 ---
 
 import { Code } from '@astrojs/starlight/components';
@@ -34,25 +38,27 @@ import retrievalMetricsCode from '../../../examples/evals/retrieval_metrics.py?r
 import answerMetricsCode from '../../../examples/evals/rag_answer_metrics.py?raw';
 import flightPolicyEvalCode from '../../../examples/evals/flight_policy_eval.py?raw';
 
-<LessonMeta level="Intermediate" minutes={22} verified="15 Aug 2026" />
+<LessonMeta level="Intermediate" minutes={26} verified="16 Aug 2026" />
 
 <Takeaway>An eval is a repeatable question, expected behavior, scoring rule, and decision threshold—not a demo that looked convincing.</Takeaway>
 
 Offline evals provide evidence for a production-readiness decision; they do not prove readiness by themselves. Production evidence also includes authorization and privacy tests, operational limits, online monitoring, drift detection, and user outcomes.
 
-## Remember three passes: Find → Answer → Ship
+## Remember four layers
 
 When a RAG reply is wrong, inspect the work in order. The final sentence rarely tells you where the failure began.
 
-1. **Find:** Did retrieval return the needed evidence, and did reranking and context packing preserve it?
-2. **Answer:** Did the model use that evidence without inventing or missing a condition?
-3. **Ship:** Is the behavior safe, useful, fast enough, and affordable enough for this workflow?
+1. **Retrieval:** Did search return the needed evidence, and did reranking and context packing preserve it?
+2. **Generation:** Did the model use that evidence without inventing or missing a condition?
+3. **End-to-end:** Did the user receive the right and useful result, including an abstention when the system lacked evidence?
+4. **Production:** Is the deployed system fast, affordable, reliable, fresh, and secure?
 
-| Pass | Artifact to inspect | Useful checks | Likely owner when it fails |
+| Layer | Artifact to inspect | Useful checks | Likely owner when it fails |
 | --- | --- | --- | --- |
-| 1. Find | Parsed source, search query, ranked passages, final context | Recall@k, Precision@k, and MRR on retrieval; evidence preserved after packing | Ingestion, retrieval, or context assembly |
-| 2. Answer | Final context, response, citations | Faithfulness, relevance, correctness, completeness | Prompt or generation |
-| 3. Ship | End-to-end trace and production telemetry | Abstention, data exposure, p95 latency, cost/query, errors | Application or platform |
+| 1. Retrieval | Parsed source, search query, ranked passages, final context | Recall@k, Precision@k, and MRR on retrieval; evidence preserved after packing | Ingestion, retrieval, or context assembly |
+| 2. Generation | Final context, response, citations | Faithfulness, relevance, correctness, completeness | Prompt or generation |
+| 3. End-to-end | Complete request, response, and intended task | Task success, correct abstention, and human review | Product or application |
+| 4. Production | Traces, telemetry, source versions, and authorization decisions | p50/p95 latency, cost/query, errors, freshness, and leakage tests | Platform, data, or security |
 
 Keep the order. Rewriting the prompt cannot recover a policy that never reached the context.
 
@@ -111,15 +117,16 @@ Picture a support agent opening this fictional ticket. It resembles a normal air
 
 The right response cannot be a confident yes or no. It should explain the two conditions and ask for the missing facts.
 
-Now walk the ticket through the three passes:
+Now walk the ticket through the four layers:
 
-1. **Find:** Search should return the reviewed hotel policy, and context packing should keep it. Suppose retrieval returns that policy plus meal and baggage pages: Hit@3 = `1`, Precision@3 = `1 / 3`, and Recall@3 = `1 / 1`.
-2. **Answer:** If the model says, “Yes. A six-hour delay qualifies,” it answered the topic but ignored both policy conditions. Answer relevance passes; faithfulness and correctness fail.
-3. **Ship:** The application blocks that reply. It asks whether an overnight stay is required and whether the delay was airline-caused, or it sends the case to an agent.
+1. **Retrieval:** Search should return the reviewed hotel policy, and context packing should keep it. Suppose retrieval returns that policy plus meal and baggage pages: Hit@3 = `1`, Precision@3 = `1 / 3`, and Recall@3 = `1 / 1`.
+2. **Generation:** If the model says, “Yes. A six-hour delay qualifies,” it answered the topic but ignored both policy conditions. Answer relevance passes; faithfulness and correctness fail.
+3. **End-to-end:** The expected outcome is to explain the conditions and ask for the missing facts. A confident “yes” therefore fails the passenger's task even though the reply sounds clear.
+4. **Production:** A release gate should catch this behavior before deployment. After deployment, traces and sampled reviews should reveal any return of the same failure pattern.
 
 This table isolates the same ticket at different failure points:
 
-| Run | Find | Answer | Ship decision |
+| Run | Retrieval | Generation | End-to-end decision |
 | --- | --- | --- | --- |
 | Retrieval failure | Hit@3 = `0`; Precision@3 = `0 / 3`; Recall@3 = `0 / 1` | Not scored in this stage test | Fix retrieval before judging generation |
 | Generation failure | Hit@3 = `1`; Precision@3 = `1 / 3`; Recall@3 = `1 / 1` | “Yes. A six-hour delay qualifies.” | Block: relevant, but unfaithful and incorrect |
@@ -167,6 +174,43 @@ The following provider-neutral shape computes retrieval metrics first and inject
 <Code code={answerMetricsCode} lang="python" title="src/examples/evals/rag_answer_metrics.py" />
 
 Always report `k`, the relevance definition, dataset size, label method, aggregation method, and evaluator version. “Precision improved” is incomplete without them.
+
+## Evaluate a generated summary
+
+A summary can sound natural while dropping a condition.
+
+Return to the fictional airline policy:
+
+```text
+Source:
+Hotel accommodation is provided only when an overnight stay is required
+and the disruption was caused by the airline.
+
+Bad summary:
+Passengers receive a hotel after a long delay.
+```
+
+The summary is short and relevant to the topic.
+
+It is still wrong. It replaced two required conditions with the vague phrase “long delay.”
+
+Check a summary in this order:
+
+| Check | Question | Airline failure |
+| --- | --- | --- |
+| Claim support | Does the source support every claim? | “Long delay” is not the stated rule |
+| Required-fact coverage | Did it preserve every required condition? | Overnight stay and airline cause disappeared |
+| Contradiction | Did it reverse or change a source statement? | Weather delays may now look eligible |
+| Citation precision | Does each citation support its attached claim? | A real policy link may not support “long delay” |
+| Citation coverage | Are the important claims traceable? | The eligibility conclusion has no source marker |
+| Concision | Did it remove repetition without removing meaning? | Shorter text lost the decision rule |
+| Uncertainty | Did it state when evidence was incomplete? | It gave a conclusion without the missing facts |
+
+Reference-overlap metrics can be supporting signals. Similar wording does not prove factuality, and different wording does not prove an error.
+
+For high-impact summaries, label required facts and prohibited conclusions. Then test whether every required fact survived and every generated claim has source support. AWS's current RAG evaluation guidance similarly separates correctness, completeness, faithfulness, citation quality, and other answer qualities.[^aws-eval]
+
+> **Mental model:** A good summary is shorter than the source, but it keeps the facts that would change the decision.
 
 ## Compare versions with the same test
 
@@ -251,3 +295,4 @@ An average cannot excuse a critical data-isolation failure. Safety gates are har
 [^ranked-metrics]: Google for Developers defines [Precision@k and Recall@k](https://developers.google.com/machine-learning/glossary/metrics) for ranked lists. Microsoft also documents the retrieval-specific definitions in its [RAG information-retrieval guidance](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-information-retrieval).
 [^rag-eval]: LangChain, [“Evaluate a RAG application”](https://docs.langchain.com/langsmith/evaluate-rag-tutorial), separates correctness, answer relevance, groundedness, and retrieval relevance.
 [^ragas]: Es et al., [“RAGAS: Automated Evaluation of Retrieval Augmented Generation”](https://aclanthology.org/2024.eacl-demo.16/), EACL 2024.
+[^aws-eval]: Amazon Web Services, [“Knowledge-base evaluation metrics”](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base-evaluation-metrics.html), separates retrieval metrics from generated-answer qualities such as correctness, completeness, faithfulness, and citation measures.

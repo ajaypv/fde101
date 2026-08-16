@@ -1,146 +1,487 @@
 ---
-title: From demo RAG to production retrieval
-description: Add query rewriting, hybrid search, reranking, permissions, tracing, and evaluation only where measured failures justify them.
+title: Production retrieval — find, fuse, and rerank
+description: Learn BM25, vector search, hybrid retrieval, RRF, query rewriting, reranking, MMR, permissions, and retrieval evaluation.
 contentType: lesson
 level: Intermediate
-minutes: 20
-topics: [RAG, hybrid search, query rewriting, reranking, production]
-lastVerified: 2026-08-15
+minutes: 30
+topics: [RAG, BM25, hybrid search, RRF, reranking, MMR]
+lastVerified: 2026-08-16
 sidebar:
   order: 3
 sources:
-  - title: Retrieval-augmented generation for knowledge-intensive NLP tasks
-    url: https://arxiv.org/abs/2005.11401
-    publisher: arXiv
-    type: paper
-  - title: RAG in Azure AI Search
-    url: https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview
+  - title: How full-text search works
+    url: https://www.elastic.co/docs/solutions/search/full-text/how-full-text-works
+    publisher: Elastic
+    type: official-doc
+  - title: Develop a RAG solution — information-retrieval phase
+    url: https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-information-retrieval
     publisher: Microsoft
     type: official-doc
-  - title: Hybrid search
-    url: https://www.elastic.co/docs/solutions/search/hybrid-search
-    publisher: Elastic
+  - title: Hybrid search scoring — Reciprocal Rank Fusion
+    url: https://learn.microsoft.com/en-us/azure/search/hybrid-search-ranking
+    publisher: Microsoft
     type: official-doc
   - title: Rewrite queries with semantic ranker
     url: https://learn.microsoft.com/en-us/azure/search/semantic-how-to-query-rewrite
     publisher: Microsoft
     type: official-doc
   - title: Rerank overview
-    url: https://docs.cohere.com/docs/rerank-overview
+    url: https://docs.cohere.com/docs/reranking-with-cohere
     publisher: Cohere
+    type: official-doc
+  - title: The use of MMR, diversity-based reranking for reordering documents and producing summaries
+    url: https://aclanthology.org/X98-1025/
+    publisher: Association for Computational Linguistics
+    type: paper
+  - title: Document-level access control
+    url: https://learn.microsoft.com/en-us/azure/search/search-document-level-access-overview
+    publisher: Microsoft
     type: official-doc
 ---
 
 import { Code } from '@astrojs/starlight/components';
 import LessonMeta from '../../../components/LessonMeta.astro';
 import Takeaway from '../../../components/Takeaway.astro';
-import productionCode from '../../../examples/rag/production_retrieval.py?raw';
+import retrievalCode from '../../../examples/rag/production_retrieval.py?raw';
 
-<LessonMeta level="Intermediate" minutes={20} verified="15 Aug 2026" />
+<LessonMeta level="Intermediate" minutes={30} verified="16 Aug 2026" kind="Book chapter" />
 
-<Takeaway>A vector search followed by an LLM is a useful baseline. A production RAG system is that baseline plus the controls that its measured failures require.</Takeaway>
+<Takeaway>Retrieve broadly enough to find the evidence. Then spend more effort on a smaller candidate set.</Takeaway>
 
-## First, correct the definition
+## Chapter 1: Retrieval has one job
 
-RAG retrieves external evidence at request time and supplies it to a language model.[^rag-paper] The retriever may use keyword search, vectors, SQL, APIs, or several methods together. RAG does **not** require embeddings or a vector database.
+Retrieval must place the evidence needed to answer inside the candidate set.
 
-Think of a librarian. The librarian can search by title, subject, catalog number, or database query. The defining step is bringing useful evidence to the reader—not using one particular index.
+It does not need to answer the user.
 
-## Baseline and production are not opposites
+It needs to find the passages that make an answer possible.
 
-| Baseline RAG | Production question |
-| --- | --- |
-| Load text | Was every page, table, heading, and deletion handled correctly? |
-| Split text | Does each chunk preserve the answer and its qualifier? |
-| Embed and store | Are source identity, freshness, tenant, and permissions attached? |
-| Vector search | Do exact IDs and paraphrases both retrieve well? |
-| Send top results to the model | Did ranking and token packing preserve the answer-bearing passage? |
-| Generate an answer | Is each claim supported, cited, observable, and safe to return? |
+We will continue with the fictional airline policy:
 
-A simple two-step pipeline can serve a narrow production use case when it passes its quality, security, latency, and reliability gates. Hybrid search, rewriting, and reranking are not badges of maturity. Each added stage must improve a representative evaluation enough to justify its cost and latency.
+> **IRROPS-204 — Hotel accommodation**
+>
+> Hotel accommodation is provided only when the disruption requires an overnight stay and the disruption was caused by the airline.
 
-## The two pipelines
+Two passengers may ask about the same policy in different ways:
 
 ```text
-OFFLINE: prepare trustworthy evidence
-
-sources → parse → inspect → chunk → attach metadata
-        → embed/index → update and delete stale content
-
-ONLINE: answer one request
-
-question → authorize → optional rewrite → broad retrieval
-         → fuse → rerank → pack context → answer/cite/abstain
-         → trace and evaluate
+Query A: IRROPS-204 hotel eligibility
+Query B: Will the airline pay for my room?
 ```
 
-Microsoft's RAG guidance treats query understanding, token constraints, multi-source access, and granular authorization as separate engineering problems.[^azure-rag]
+Query A contains an exact policy ID.
 
-## One worked retrieval
+Query B uses a paraphrase.
 
-Suppose the user asks, “Can I return order `ORD-1042` after two weeks?”
+One search method may not handle both equally well.
+
+## Chapter 2: BM25 searches for words
+
+Think of a librarian who searches the catalog for the words you used.
+
+If you provide `IRROPS-204`, that librarian can find the exact identifier.
+
+This is the job of keyword search.
+
+Many search engines rank keyword results with **BM25**, commonly expanded as Best Matching 25.
+
+### BM25 starts during ingestion
+
+The search engine analyzes the text.
+
+It may lowercase words, split them into tokens, remove some punctuation, or apply language-specific rules.
+
+It then builds an inverted index.
 
 ```text
-original query → keyword top 20 ─┐
-                                 ├→ RRF fusion → 30 candidates
-rewritten query → vector top 20 ─┘
-                                      ↓
-                                semantic reranker
-                                      ↓
-                              best 5 passages
-                                      ↓
-                         answer with passage citations
+Term           Chunks containing the term
+-------------------------------------------------
+IRROPS-204     hotel-policy
+hotel          hotel-policy, reimbursement-form
+overnight      hotel-policy, overnight-operations
 ```
 
-Keyword search protects the exact order code. Vector search helps when the policy says “14-day return period” rather than “two weeks.” Hybrid search combines the ranked lists; reciprocal rank fusion is useful because it works with ranks instead of assuming the two raw score scales are comparable.[^hybrid]
+The query must use a compatible analyzer. If the index and query treat identifiers differently, exact search can fail.
 
-The numbers above are examples, not defaults. Tune candidate depth and final context size against retrieval quality, latency, and the model's context budget.
+### What BM25 rewards
 
-## Query rewriting needs a seat belt
+BM25 combines three main ideas.[^bm25]
 
-[Query rewriting](../../glossary/query-rewriting/) can clarify a conversational question, add corpus language, or create several focused searches. It can also remove an exact identifier or change the user's intent. Microsoft's implementation runs the original and rewritten queries and warns that rewrites can lose terms such as product codes.[^rewrite]
+1. **Term frequency:** a matching term matters more when it appears in the passage.
+2. **Document frequency:** a rare term matters more than a common term.
+3. **Length normalization:** a long passage does not win only because it contains more words.
 
-Keep the original query, record every rewrite, and compare retrieval with and without the step.
+The common formula is:
 
-## Rerank what retrieval found
+```text
+BM25(q, D) = Σ IDF(term) ×
+             frequency × (k1 + 1)
+             ──────────────────────────────────────────
+             frequency + k1 × (1 - b + b × length / average_length)
+```
 
-A first-stage retriever should be fast enough to collect candidates. A reranker then scores a smaller list more carefully. Rerank APIs accept a query plus documents and return them in a new relevance order.[^rerank]
+Read it in plain language:
 
-A reranker cannot rescue a passage missing from the candidate set. Low recall must be fixed before the reranking stage.
+- `IDF` gives more weight to rare terms.
+- `frequency` counts how often the term appears in the passage.
+- `k1` controls how quickly repeated terms stop adding much value.
+- `b` controls how strongly passage length changes the score.
 
-## A readable implementation
+The score is useful for ranking inside that search system. It is not a probability that the passage is correct.
 
-The example keeps vendor details behind interfaces. It preserves the original query for exact search, applies the rewrite only to semantic search, enforces tenant and caller filters in both branches, fuses ranks, reranks candidates, adds citation and abstention instructions, and returns the exact final passages for later claim checks.
+### Airline example
 
-<Code code={productionCode} lang="python" title="src/examples/rag/production_retrieval.py" />
+`IRROPS-204` may appear in only one policy.
 
-The code still does not prove the answer is correct. It makes each stage visible enough to measure.
+The word `airline` may appear in thousands of policies.
 
-## Where quality actually breaks
+BM25 gives the rare policy ID more influence.
 
-| Stage | Typical failure | Inspect this artifact |
+### Where BM25 helps
+
+- policy IDs;
+- product codes;
+- error messages;
+- names and acronyms;
+- invoice and deployment IDs;
+- exact legal phrases.
+
+### What can go wrong
+
+The passenger may say **room** while the document says **hotel accommodation**.
+
+BM25 cannot reliably infer every paraphrase.
+
+> **Mental model:** BM25 is strong when the words themselves carry the signal.
+
+## Chapter 3: Vector search searches by meaning
+
+Now imagine a second librarian.
+
+This librarian does not require the same words.
+
+The librarian recognizes that **pay for my room** is related to **hotel accommodation**.
+
+Vector search gives us that behavior.
+
+### How it works
+
+1. An embedding model converts each chunk into a vector during ingestion.
+2. The same compatible embedding space converts the query into a vector.
+3. The vector index finds nearby document vectors.
+
+```text
+"hotel accommodation" → [0.12, -0.48, 0.73, ...]
+"pay for my room"     → [0.10, -0.44, 0.70, ...]
+```
+
+The actual vectors contain many dimensions.
+
+People do not interpret those dimensions one by one.
+
+We use a distance or similarity function to compare them.
+
+### What can go wrong
+
+Vector search may find text about hotels that does not contain the eligibility rule.
+
+It can also weaken exact identifiers.
+
+Similarity is not truth. A collection always has a nearest vector, even when none of its passages answer the question.
+
+Use the distance function expected by the embedding model. Use compatible query and document embeddings.
+
+> **Mental model:** Vector search is strong when the meaning matters more than exact wording.
+
+## Chapter 4: Hybrid search asks both
+
+Neither librarian is always right.
+
+So we can ask both.
+
+This is called **hybrid search**.
+
+```mermaid
+flowchart TD
+    Q["Question"] --> A["Apply tenant, ACL, date, and status filters"]
+    A --> B["BM25: exact words"]
+    A --> V["Vector search: similar meaning"]
+    B --> C["Combine candidate lists"]
+    V --> C
+```
+
+For our two queries:
+
+| Query | BM25 contribution | Vector contribution |
 | --- | --- | --- |
-| Source | Correct policy is absent or stale | Source version and sync log |
-| Parsing | PDF columns or table cells become scrambled text | Extracted text beside the original page |
-| Chunking | Rule and exception land in different chunks | Chunk text plus section path |
-| Metadata | Page, tenant, permission, or source ID disappears | Stored chunk record |
-| Query | User language does not match corpus language | Original and rewritten queries |
-| Retrieval | Needed passage falls below the candidate cutoff | Full ranked candidate list |
-| Fusion/reranking | A relevant candidate is ordered poorly | Ranks before and after each stage |
-| Context assembly | Deduplication or truncation removes evidence | Exact final context sent to the model |
-| Generation | Model ignores or changes correct evidence | Answer claims beside supplied context |
-| Citation | Link works but does not support the claim | Claim-to-passage mapping |
+| `IRROPS-204 hotel eligibility` | Finds the policy ID | Finds hotel-related meaning |
+| `Will the airline pay for my room?` | Finds exact words such as airline and pay | Connects room with hotel accommodation |
 
-“RAG usually fails before the model” is a useful debugging reminder, not a fact. The model can still ignore, distort, or overgeneralize evidence that reached its context.
+Hybrid retrieval often improves coverage because the branches make different mistakes.[^retrieval]
 
-## The production rule
+It also adds work.
 
-Begin with the smallest pipeline you can evaluate. Add one stage, rerun the same cases, inspect changed failures, and keep the stage only when the trade-off is worth it.
+Ship it only when a labeled evaluation shows enough benefit.
 
-Next: [evaluate retrieval and generation separately](../../evals/) or practice the [production RAG interview answer](../../interview/production-rag-pipeline/).
+## Chapter 5: RRF combines ranked lists
 
-[^rag-paper]: Lewis et al., [“Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks”](https://arxiv.org/abs/2005.11401), introduced the RAG formulation using retrieved external memory.
-[^azure-rag]: Microsoft, [“Retrieval-augmented generation in Azure AI Search”](https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview).
-[^hybrid]: Elastic, [hybrid search](https://www.elastic.co/docs/solutions/search/hybrid-search) and [reciprocal rank fusion](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/reciprocal-rank-fusion).
-[^rewrite]: Microsoft, [query rewriting in Azure AI Search](https://learn.microsoft.com/en-us/azure/search/semantic-how-to-query-rewrite). The documented feature is vendor-specific and currently preview; the keep-and-test principle is general.
-[^rerank]: Cohere, [Rerank overview](https://docs.cohere.com/docs/rerank-overview).
+BM25 gives us one ranking.
+
+Vector search gives us another ranking.
+
+Their raw scores are not directly comparable.
+
+Reciprocal Rank Fusion, or **RRF**, combines the rank positions instead.[^rrf]
+
+```text
+RRF score(document) = Σ 1 / (rank + rank constant)
+```
+
+The rank constant is commonly `60`.
+
+It is separate from top-k.
+
+### Worked example
+
+| Rank | BM25 list | Vector list |
+| ---: | --- | --- |
+| 1 | Hotel reimbursement form | Hotel eligibility policy |
+| 2 | Hotel eligibility policy | Passenger-care FAQ |
+
+The eligibility policy receives two contributions:
+
+```text
+1 / (60 + 2) + 1 / (60 + 1)
+= 1 / 62 + 1 / 61
+≈ 0.03252
+```
+
+The reimbursement form appears in only one list:
+
+```text
+1 / (60 + 1)
+≈ 0.01639
+```
+
+The eligibility policy wins because both retrieval branches placed it near the top.
+
+RRF does not understand the passages. It combines ranking evidence.
+
+## Chapter 6: Query rewriting can help or hurt
+
+Users do not always ask clean search queries.
+
+They may use pronouns, omit a product name, or include several questions at once.
+
+A query rewrite can make the search request clearer.
+
+```text
+Original:
+Will they pay for my room?
+
+Possible rewrite:
+airline hotel accommodation eligibility after flight disruption
+```
+
+The rewrite may improve semantic retrieval.
+
+It may also remove an exact ID, number, or name.
+
+Keep the original query. Use it in the keyword branch when exact text matters.
+
+Rewriting also adds latency, cost, and another component that needs evaluation.
+
+Test original-only, rewrite-only, and combined retrieval on the same cases.
+
+## Chapter 7: Reranking takes a second look
+
+Initial retrieval is designed to search a large collection quickly.
+
+Its first ordering may be imperfect.
+
+Suppose hybrid search returns 30 passages.
+
+Some are useful. Others only mention hotels.
+
+A reranker reads the question together with each candidate. It produces a more careful relevance score.
+
+```text
+question + candidate passage → reranker score
+```
+
+Cross-encoder rerankers are a common implementation. They compare the two texts jointly.[^rerank]
+
+This costs more than the first retrieval stage.
+
+That is why rerankers usually process tens of candidates instead of the full collection.
+
+```mermaid
+flowchart TD
+    R["Retrieve 40 candidates"] --> F["Fuse the ranked lists"]
+    F --> X["Rerank the best 20–30"]
+    X --> K["Keep 3–5 evidence passages"]
+```
+
+### What can go wrong
+
+The reranker cannot recover a policy that retrieval never found.
+
+A candidate pool that is too small harms recall.
+
+A candidate pool that is too large increases latency and cost.
+
+Measure the trade-off.
+
+## Chapter 8: MMR reduces repetition
+
+A reranker may return five copies of the same policy.
+
+The copies may come from several versions, FAQs, or child chunks.
+
+Sending all five wastes context.
+
+Maximal Marginal Relevance, or **MMR**, balances relevance and novelty.[^mmr]
+
+```text
+MMR candidate score =
+    λ × relevance to the query
+    − (1 − λ) × similarity to already selected passages
+```
+
+When `λ` is higher, the selection favors relevance.
+
+When `λ` is lower, the selection favors diversity.
+
+### Airline example
+
+Suppose the candidate list contains:
+
+1. Hotel eligibility policy.
+2. Duplicate hotel eligibility paragraph.
+3. FAQ copy of the same rule.
+4. Section explaining airline-controlled causes.
+5. Reimbursement-limit section.
+
+A pure relevance ranking may choose items 1, 2, and 3.
+
+MMR may choose items 1, 4, and 5.
+
+The model receives less repetition and more useful coverage.
+
+### What can go wrong
+
+Too much diversity can remove a second passage that is genuinely needed.
+
+MMR does not create relevance. It only selects from the candidates it receives.
+
+Use deduplication first when passages are exact copies. Use MMR when near-duplicate meaning is the problem.
+
+## Chapter 9: Permissions belong inside retrieval
+
+The user must not receive evidence they cannot access.
+
+This rule applies to both keyword and vector branches.
+
+```text
+tenant_id = airline-support
+principal_id = employee-428
+acl_group_ids contains support-agents
+effective_at <= request time
+status = active
+```
+
+Apply authorization during search.[^access]
+
+Filtering only after generation risks exposing private content to the model, traces, caches, or the final answer.
+
+Test access rules with negative cases:
+
+- another tenant's document;
+- a revoked user;
+- an expired policy;
+- a public document and a restricted attachment;
+- a cached answer created under broader permissions.
+
+## Chapter 10: Build the final evidence package
+
+The final passage set should be small and inspectable.
+
+Use this order as a starting point:
+
+1. Authenticate the caller.
+2. Build tenant, ACL, freshness, and status filters.
+3. Preserve the original query.
+4. Create a rewrite only when it may help.
+5. Run BM25 and vector search.
+6. Combine results with RRF.
+7. Rerank the strongest candidates.
+8. Remove exact duplicates.
+9. Apply MMR when near-duplicate results waste context.
+10. Expand child chunks to useful parent sections.
+11. Fit the evidence inside the token budget.
+12. Preserve source information for citation checks.
+
+This order is not a law.
+
+Some systems rerank after parent expansion. Some apply diversity before a costly reranker.
+
+Evaluate the actual pipeline as a versioned bundle.
+
+## Provider-neutral Python
+
+The example below preserves the original query for keyword search.
+
+It uses a rewrite for the vector branch.
+
+It applies access filters to both branches.
+
+It fuses rankings with RRF and reranks only a shortlist.
+
+<Code code={retrievalCode} lang="python" title="src/examples/rag/production_retrieval.py" />
+
+The interfaces do not make the pipeline safe by themselves. The search adapter must enforce the filters it receives.
+
+## Measure the retrieval stages
+
+| Stage | Useful measure | Failure it reveals |
+| --- | --- | --- |
+| Keyword branch | Recall@k on exact-identifier cases | Analyzer or exact-match weakness |
+| Vector branch | Recall@k on paraphrase cases | Embedding or semantic-retrieval weakness |
+| HNSW index | ANN recall@k against exact search | Approximate-index loss |
+| Fusion | Recall@k and rank changes | RRF helps or harms the candidate set |
+| Reranking | MRR, nDCG, Recall@final-k | Correct evidence remains too low |
+| MMR or deduplication | Duplicate rate and answer completeness | Context repeats or loses supporting evidence |
+| End-to-end retrieval | Hit@k, Precision@k, Recall@k | Evidence reaching the context |
+
+Do not change chunking, embeddings, fusion, and reranking together and then credit one component.
+
+Run ablations when you need to know which component caused the change.
+
+## Trace what happened
+
+A useful retrieval trace records:
+
+- original and rewritten queries;
+- applied filters without secret values;
+- BM25 and vector candidate IDs;
+- branch ranks and RRF contributions;
+- reranker model and scores;
+- deduplication and MMR decisions;
+- final parent and child IDs;
+- latency and cost for each stage;
+- index, corpus, and embedding versions.
+
+The trace should make a failed answer explainable without reproducing the user's private data in every log.
+
+## Interview answer in 45 seconds
+
+> I retrieve a broad candidate set before asking the model to answer. BM25 covers exact identifiers and keyword-heavy questions. Vector search covers paraphrases. I apply the same authorization and freshness filters to both branches, combine the rankings with RRF, and use a cross-encoder or another stronger scorer to rerank a shortlist. I deduplicate results and use MMR only when repeated passages waste context. I preserve the original query because rewriting can drop exact IDs. I evaluate every stage separately, including Recall@k, MRR, ANN recall against exact search, latency, cost, and unauthorized-retrieval tests.
+
+Next: [prepare chunks that preserve the answer](./chunking/), [understand vector indexes](./vector-search-foundations/), or [evaluate the complete answer](../evals/).
+
+[^bm25]: Elastic, [“How full-text search works”](https://www.elastic.co/docs/solutions/search/full-text/how-full-text-works), explains the inverted index and BM25 term-frequency, document-frequency, and length signals.
+[^retrieval]: Microsoft, [“Develop a RAG solution — information-retrieval phase”](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-information-retrieval), describes full-text, vector, hybrid retrieval, reranking, and evaluation choices.
+[^rrf]: Microsoft, [“Hybrid search scoring — Reciprocal Rank Fusion”](https://learn.microsoft.com/en-us/azure/search/hybrid-search-ranking), documents rank-based RRF scoring for hybrid result lists.
+[^rerank]: Cohere, [“Reranking with Cohere”](https://docs.cohere.com/docs/reranking-with-cohere), documents query-document reranking over a candidate list.
+[^mmr]: Carbonell and Goldstein, [“The use of MMR, diversity-based reranking for reordering documents and producing summaries”](https://aclanthology.org/X98-1025/), introduced the relevance-and-novelty selection objective.
+[^access]: Microsoft, [“Document-level access control”](https://learn.microsoft.com/en-us/azure/search/search-document-level-access-overview), describes permission metadata and query-time authorization filters.

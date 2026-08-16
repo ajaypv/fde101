@@ -1,11 +1,11 @@
 ---
 title: How do you evaluate a RAG system?
-description: An interview-ready evaluation method that separates retrieval, generation, behavior, and operations with explicit denominators.
+description: A four-part interview answer that separates retrieval, generation, user outcomes, and production behavior.
 contentType: interview
 level: Intermediate
-minutes: 7
+minutes: 10
 topics: [RAG, evaluation, precision, recall, faithfulness, interview]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 6
 sources:
@@ -21,23 +21,37 @@ sources:
     url: https://aclanthology.org/2024.eacl-demo.16/
     publisher: Association for Computational Linguistics
     type: paper
+  - title: RAG evaluation quickstart
+    url: https://deepeval.com/docs/getting-started-rag
+    publisher: DeepEval
+    type: official-doc
 ---
 
-## 30-second answer
+## 60-second answer
 
-I use three passes: **Find, Answer, Ship**. First, did retrieval find the labeled evidence? I report precision@k, recall@k, rank, and `k`. Second, did the model answer from that evidence? I check faithfulness, relevance, correctness, and completeness. Third, should we ship the behavior? I test citations, abstention, permissions, latency, cost, and errors against release gates on a versioned dataset.
+I evaluate a RAG system in four parts.
 
-## The 1–2–3 mental model
+First, I evaluate **retrieval**. Did the system find the evidence needed to answer the question? I measure Precision@k, Recall@k, and MRR on a reviewed test set.
 
-1. **Find and preserve the evidence.** Inspect the query, filters, ranked passages, and exact final context.
-2. **Answer from the evidence.** Inspect the final context, claims, and citations.
-3. **Ship only after gates pass.** Inspect the end-to-end trace, safety checks, latency, and cost.
+Second, I evaluate **generation**. Did the model answer the question, stay faithful to the retrieved evidence, reach the correct conclusion, and cite passages that support its claims?
 
-| Pass | Interview question to ask | Metrics or checks |
+Third, I evaluate the **end-to-end outcome**. Did the user receive a correct and useful result? I measure task success, correct abstention, and human ratings for correctness, completeness, clarity, and usefulness.
+
+Finally, I evaluate **production behavior**. I monitor percentile latency, cost, errors, freshness, authorization, and quality drift. I do not report one overall “RAG score,” because one number cannot tell me which layer failed.
+
+## Remember four questions
+
+1. **Retrieval:** Did we find the right evidence?
+2. **Generation:** Did we use the evidence correctly?
+3. **End-to-end:** Did the user get the right result?
+4. **Production:** Is the system fast, affordable, reliable, fresh, and secure?
+
+| Layer | Artifact to inspect | Metrics or checks |
 | --- | --- | --- |
-| 1. Find | Did retrieval return the answer-bearing passage, and did packing keep it? | Recall@k, Precision@k, and MRR on retrieval; evidence-survival check on final context |
-| 2. Answer | Did the response use that passage correctly? | Faithfulness, relevance, correctness, completeness |
-| 3. Ship | Would I trust this behavior for real users? | Abstention, citation support, permissions, p95 latency, cost, errors |
+| 1. Retrieval | Parsed source, search query, filters, ranked passages, and final packed context | Recall@k, Precision@k, MRR, and evidence survival after context packing |
+| 2. Generation | Final context, response claims, and citations | Faithfulness, answer relevance, correctness, completeness, and citation support |
+| 3. End-to-end | The complete request, response, and intended user task | Task success, correct abstention, and human review |
+| 4. Production | Traces, telemetry, source versions, and authorization decisions | p50/p95 latency, cost, errors, freshness, leakage tests, and drift |
 
 ## Begin with the denominator
 
@@ -94,11 +108,12 @@ Hit@5 asks whether at least one relevant result appeared. It equals the pass/fai
 | Faithfulness | Fails | The policy never says six hours alone qualifies |
 | Correctness | Fails | Overnight need and airline-controlled cause are still unknown |
 
-Walk the result through the mental model:
+Walk the result through the four questions:
 
-1. **Find passes, with noise:** the policy was retrieved, so Recall@5 is `1 / 1`; Precision@5 is only `1 / 5`.
-2. **Answer fails:** “Six hours qualifies” is relevant to the question but unsupported and incorrect.
-3. **Ship blocks the reply:** ask for the two missing facts or send the ticket to a support agent.
+1. **Retrieval passes, with noise:** the policy was retrieved, so Recall@5 is `1 / 1`; Precision@5 is only `1 / 5`.
+2. **Generation fails:** “Six hours qualifies” is relevant to the question but unsupported and incorrect.
+3. **End-to-end fails:** the passenger received a confident answer instead of a request for the two missing facts.
+4. **Production evaluation should catch the pattern:** release gates test abstention before deployment; traces and sampled reviews watch for the same failure after deployment.
 
 The safe conclusion is not automatically “yes” or “no.” A good retrieval score cannot prove the final answer is good.
 
@@ -124,6 +139,20 @@ These checks are related but not interchangeable. RAG evaluation guides commonly
 
 The `1 / 2` faithfulness result above is a hand-labeled teaching example, not a universal automatic formula. In a real evaluation, define how claims are split, what counts as support, and how disagreements are reviewed.
 
+## Use libraries as tools, not as ground truth
+
+Evaluation libraries can run the same checks on every version. They do not decide what “good” means for your product.
+
+| Tool | What it can help with | What your team still owns |
+| --- | --- | --- |
+| [RAGAS](https://docs.ragas.io/) | RAG-focused metrics and experiments across retrieval and generation | The dataset, expected behavior, metric choice, and release thresholds |
+| [DeepEval](https://deepeval.com/docs/getting-started-rag) | Pytest-style regression tests and separate retriever and generator metrics | The rubric, judge configuration, and review of important failures |
+| [LangSmith](https://docs.langchain.com/langsmith/evaluate-rag-tutorial) | Datasets, experiments, traces, and offline or online evaluators | Product-specific labels, security tests, and deployment decisions |
+
+An LLM judge is useful when several answers can be valid. It is still another model. Calibrate its rubric against human-reviewed examples. Keep deterministic checks for exact facts such as citation IDs, JSON shape, tenant boundaries, and required fields.
+
+“Hallucination” is also a failure description, not one universal metric. Turn it into a check you can repeat, such as: **Does every factual claim have support in the retrieved evidence?**
+
 ## Build a useful dataset
 
 For each case, retain:
@@ -136,6 +165,19 @@ For each case, retain:
 
 Include ordinary, edge, adversarial, permission-denied, stale-source, and unanswerable cases. Incomplete relevance labels make recall look better or worse than it is, so review misses rather than trusting only the average.
 
+## Monitor the system after deployment
+
+Offline tests show how a fixed version behaves on a fixed dataset. Production monitoring catches new queries, changed documents, expired permissions, and traffic patterns that the dataset did not contain.
+
+| Production concern | What to record | Failure signal |
+| --- | --- | --- |
+| Latency | p50 and p95 for retrieval, reranking, and generation | A fast average hides slow requests at the tail |
+| Cost | Embedding, reranking, model, and cache cost per query | Cost rises even though successful answers do not |
+| Reliability | Timeouts, empty retrievals, model errors, and fallback use | The answer path fails or silently changes |
+| Freshness | Source version, ingestion time, and index version | Search returns an older policy after an update |
+| Security | User, tenant, ACL filters, and denied results | A user can retrieve evidence they are not allowed to read |
+| Quality drift | Sampled production cases and evaluator or human scores | Faithfulness or task success falls after a model, prompt, or corpus change |
+
 ## Turn measurements into decisions
 
 ```text
@@ -143,7 +185,9 @@ Example release gate — values depend on the workflow risk
 
 retrieval recall@5       >= agreed threshold
 faithful answer rate     >= agreed threshold
+end-to-end task success  >= agreed threshold
 correct abstention rate  >= agreed threshold
+supported citation rate  >= agreed threshold
 p95 latency              <= service objective
 critical data leaks       = 0
 ```
@@ -152,7 +196,7 @@ Do not collapse everything into one “RAG score.” A safe but irrelevant answe
 
 ## Strong closing answer
 
-When a metric moves, I inspect the individual changed cases and the earliest failing artifact. That tells me whether to fix parsing, chunking, retrieval depth, reranking, context assembly, generation, or the evaluation labels themselves.
+My mental model is simple: retrieval finds the evidence, generation uses it, end-to-end evaluation checks the user's result, and production evaluation checks whether the system remains safe and dependable. When a metric moves, I inspect the changed cases and the earliest failing artifact. That tells me whether to fix parsing, chunking, retrieval depth, reranking, context assembly, generation, or the evaluation labels themselves.
 
 Continue with [Evaluation that changes decisions](../../evals/), [From demo RAG to production retrieval](../../rag/production-retrieval/), and [Faithfulness](../../glossary/faithfulness/).
 
