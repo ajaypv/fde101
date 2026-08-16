@@ -141,11 +141,15 @@ h1#_top {
 }
 
 .sl-markdown-content h2 {
-	border-top: 2px solid var(--rule-heavy);
 	font-size: clamp(1.65rem, 3.5vw, 2.25rem);
 	line-height: 1.1;
-	margin-top: 2.8em;
-	padding-top: 0.48em;
+	margin-top: 0;
+	padding-top: 0;
+}
+
+.sl-markdown-content .sl-heading-wrapper.level-h2 {
+	border-top: 2px solid var(--rule-heavy);
+	padding-top: 1.08rem;
 }
 
 .sl-markdown-content h3 {
@@ -217,6 +221,23 @@ pre.mermaid {
 	border-radius: 0 !important;
 	font-family: var(--sans) !important;
 	margin-block: 2rem !important;
+}
+
+pre.mermaid:not([data-processed]) {
+	animation: none !important;
+	color: transparent !important;
+	font-size: 0 !important;
+	user-select: none;
+}
+
+pre.mermaid:not([data-processed])::before {
+	color: var(--muted-ink);
+	content: "Rendering diagram";
+	font-family: var(--sans);
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
 }
 
 pre.mermaid :where(p, span, div) {
