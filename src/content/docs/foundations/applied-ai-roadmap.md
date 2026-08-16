@@ -1,11 +1,11 @@
 ---
-title: Applied AI engineering roadmap
-description: Learn prompting, context, retrieval, tools, agents, evaluation, and fine-tuning in the order that exposes real system failures.
+title: Applied AI engineering, from first call to production
+description: Learn software, prompting, context, retrieval, tools, agents, evaluation, operations, and fine-tuning in an evidence-led order.
 contentType: lesson
 level: Beginner
-minutes: 14
+minutes: 22
 topics: [roadmap, context engineering, evaluation, fine-tuning]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 2
 sources:
@@ -41,7 +41,21 @@ sources:
 
 You do not need to train a foundation model before you can build useful AI systems. An applied AI engineer connects models to software, data, tools, tests, and operations. Training models from scratch is a valuable but separate specialization.
 
-## Replace percentages with diagnosis
+This chapter gives you an order for learning. It also gives you a rule for debugging: change the layer that owns the measured failure.
+
+## What you will understand
+
+| Chapter | Question you will be able to answer |
+| --- | --- |
+| 1. Diagnosis | Why are “prompting is 10%” claims misleading? |
+| 2. Levers | What can prompts, context, retrieval, code, and fine-tuning each fix? |
+| 3. Capabilities | Which technologies teach which engineering skill? |
+| 4. Learning order | What should be built first, second, and later? |
+| 5. Failure diagnosis | Which layer should change when quality plateaus? |
+| 6. Model work | When do feature engineering, PyTorch, or fine-tuning belong? |
+| 7. Career proof | How does a target role become one measured project? |
+
+## Chapter 1: Replace percentages with diagnosis
 
 “Prompting is 10%” and “retrieval, context, and evals solve 90%” sound memorable, but neither number has a denominator or universal evidence.
 
@@ -49,7 +63,7 @@ Use this rule instead:
 
 > Measure the failure, identify which layer owns it, change that layer, and rerun the same evaluation cases.
 
-## Keep six levers separate
+## Chapter 2: Keep six engineering levers separate
 
 | Lever | What you change | Good first use | It cannot fix |
 | --- | --- | --- | --- |
@@ -64,7 +78,7 @@ Anthropic defines context engineering as curating the full set of tokens used fo
 
 The [prompt-versus-context lesson](../context-engineering/) shows this distinction through one Python authentication change and a permission-filtered repository context packet.
 
-## Learn capabilities, not a shopping list
+## Chapter 3: Learn capabilities, not a shopping list
 
 | Technology | Capability it can teach | Reach for it when |
 | --- | --- | --- |
@@ -78,7 +92,7 @@ The [prompt-versus-context lesson](../context-engineering/) shows this distincti
 
 You do not need every row in one project. A provider SDK may be simpler than LangChain; ordinary functions may be clearer than LangGraph; existing telemetry may remove the need for a new LLMOps vendor. [Choose retrieval storage](../../rag/choosing-retrieval-storage/) from evidence, not a brand checklist.
 
-## A practical learning order
+## Chapter 4: Follow a practical learning order
 
 ### 1. Software foundations
 
@@ -119,7 +133,7 @@ OpenAI's model-optimization workflow begins with evals, then prompt engineering,
 
 It is a poor store for a policy that changes weekly. Put changing facts in a governed source and retrieve them at request time.
 
-## Three diagnosis examples
+## Chapter 5: Diagnose the failed layer
 
 | Symptom | First place to look | Why |
 | --- | --- | --- |
@@ -127,7 +141,7 @@ It is a poor store for a policy that changes weekly. Put changing facts in a gov
 | Correct passage was retrieved but answer adds an unsupported exception | Context, instructions, groundedness evaluation | Evidence reached the model; generation behavior failed |
 | Output format fails in the same way across thousands of stable cases | Schema, prompt, then fine-tuning | The target behavior is repeated and measurable |
 
-## When several ML algorithms plateau
+## Chapter 6: Inspect data before changing the algorithm
 
 If random forest, SGD, and a neural network all perform similarly, pause the algorithm search. They may be hitting the same data ceiling.
 
@@ -148,11 +162,11 @@ For a transaction model, raw timestamps can become “transactions in the last h
 
 scikit-learn describes transformations as learned operations that must fit on training data and then apply to unseen data.[^transformations] Its common-pitfalls guide recommends splitting before preprocessing to prevent optimistic scores from data leakage.[^leakage]
 
-## Where PyTorch fits
+### Where PyTorch fits
 
 Learn tensors, gradients, attention, and optimization when you want deeper model intuition. Go further into PyTorch, GPUs, distributed training, and research papers for model-training or ML-platform roles. Do not use that path as a gate before building and evaluating an applied system.
 
-## Turn a target role into a measured gap
+## Chapter 7: Turn a target role into a measured gap
 
 Collect current job descriptions from the role, location, and company type you are targeting. For every claimed requirement, retain the source posting and record:
 
@@ -164,7 +178,7 @@ An AI assistant can group the rows and draft a gap analysis, but it should cite 
 
 Choose one real micro-problem from a target team's domain and build the smallest project that closes a high-value gap. The [project briefs](../../projects/) show how routing, caching, regression CI, failure forensics, and documentation drift can become portfolio evidence.
 
-## The portfolio test
+## Chapter 8: Make the project prove its claims
 
 A strong project should let another engineer answer these questions:
 
@@ -178,6 +192,10 @@ A strong project should let another engineer answer these questions:
 8. Can someone trace and reproduce a bad result?
 
 Also require one documented failure and its measured fix. A polished happy path proves less than a reproducible before-and-after experiment.
+
+## Interview answer in 30 seconds
+
+> I learn applied AI in layers. First I build ordinary software and one typed model call. Then I add context and retrieval for private or changing knowledge, typed tools for external actions, and agents only when the next step depends on observations. Evaluation and tracing start with the first version and continue through production. I fine-tune only when the target behavior is stable, the dataset is strong, and measured prompt or context changes have plateaued. I choose libraries from requirements, not from a checklist.
 
 Next: build [RAG end to end](../../rag/), study [agent systems](../../agents/), and make [evaluation](../../evals/) part of both.
 

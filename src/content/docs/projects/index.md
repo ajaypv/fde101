@@ -1,11 +1,11 @@
 ---
-title: Projects that prove applied AI engineering
-description: Turn a target role into one measured project with evaluation, operations, security, and a reproducible handoff.
+title: Applied AI projects, from market gap to measured proof
+description: Turn a target role into one focused project with evaluation, operations, security, and a reproducible handoff.
 contentType: lesson
 level: Beginner
-minutes: 18
+minutes: 24
 topics: [projects, portfolio, roadmap, FDE]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 1
 sources:
@@ -29,7 +29,25 @@ sources:
 
 A portfolio project is useful when it proves a decision, not when it contains the longest list of libraries. One deeply explained system can demonstrate more judgment than five cloned chatbots.
 
-## Begin with a target, not a stack
+Imagine two candidates.
+
+The first says, “I used Python, FastAPI, LangChain, LangGraph, Pinecone, Terraform, and five models.”
+
+The second says, “Support engineers were missing policy evidence. I built hybrid retrieval, measured Recall@5, found a parsing failure, fixed it, reduced p95 latency, and documented the remaining permission risk.”
+
+The second project gives an interviewer something concrete to examine.
+
+## What you will understand
+
+| Chapter | Question you will be able to answer |
+| --- | --- |
+| 1. Target | Which real problem should the project solve? |
+| 2. Learning layers | Which capabilities should be learned first? |
+| 3. Project briefs | Which small project can prove one skill? |
+| 4. Capstone | When should several ideas be combined? |
+| 5. Acceptance | What evidence makes the project believable? |
+
+## Chapter 1: Begin with a target, not a stack
 
 Collect 10–20 current job descriptions from the role, location, and company type you actually want. Extract evidence rather than asking AI to invent a market analysis:
 
@@ -44,7 +62,15 @@ Collect 10–20 current job descriptions from the role, location, and company ty
 
 An LLM can group and summarize the collected descriptions. It should cite the exact postings behind each conclusion. Hiring dates, salary claims, “80% coverage,” and interview guarantees are not evidence-backed roadmap inputs.
 
-## Learn the stack in layers
+Turn the collected evidence into a small flow:
+
+```text
+target role → repeated problem → missing capability → smallest useful project → measured proof
+```
+
+Do not ask an AI assistant to invent the market. Give it the job descriptions and require citations back to each source.
+
+## Chapter 2: Learn the stack in layers
 
 | Layer | Learn first | Add when the project needs it |
 | --- | --- | --- |
@@ -57,7 +83,7 @@ An LLM can group and summarize the collected descriptions. It should cite the ex
 
 Python, FastAPI, LangChain, LangGraph, Langfuse, LangSmith, Terraform, and every vector database are **not** mandatory in one project. Use each tool only when it owns a real requirement.
 
-## Five focused project briefs
+## Chapter 3: Choose one focused project brief
 
 ### 1. Model cost router
 
@@ -89,7 +115,7 @@ Detect when a code or API change may make a linked document stale. Generate a pr
 
 Call it **drift detection and reviewed repair**, not “self-healing docs.” Automatic rewriting can propagate a model error into the source of truth.
 
-## One stronger capstone
+## Chapter 4: Combine ideas only after each part is clear
 
 Combine the ideas only after each part is understandable:
 
@@ -106,7 +132,7 @@ multi-tenant support assistant
 └─ reproducible deployment + runbook
 ```
 
-## The acceptance checklist
+## Chapter 5: Make the evidence easy to review
 
 Your repository should let a reviewer find:
 
@@ -120,5 +146,9 @@ Your repository should let a reviewer find:
 - deployment configuration and an operator runbook.
 
 Only claim what the evidence shows. A good project can improve your skill and give an interviewer something concrete to discuss; it cannot guarantee a referral, salary, interview, or job.
+
+## Interview answer in 30 seconds
+
+> I choose a portfolio project from a repeated problem in target job descriptions, not from a list of fashionable libraries. I define the user, workflow, constraints, and success metric first. Then I build the smallest system that closes one skill gap. The repository includes a versioned evaluation set, quality and safety results, latency and cost, one documented failure and measured fix, setup commands, known limitations, and an operator handoff.
 
 Next: follow the [applied AI roadmap](../foundations/applied-ai-roadmap/) or use the [production checklist](../field-guide/production-rag-checklist/) as your definition of done.

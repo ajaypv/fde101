@@ -1,11 +1,11 @@
 ---
-title: The protocol map
-description: Choose MCP, A2A, or A2UI from the boundary that needs a shared contract.
+title: Protocols, from tools to agents to interfaces
+description: Follow one passenger-care request across MCP, A2A, and A2UI, and learn which trust boundary each protocol does and does not solve.
 contentType: lesson
 level: Beginner
-minutes: 8
+minutes: 14
 topics: [MCP, A2A, A2UI, protocols, agents]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 1
 sources:
@@ -27,13 +27,22 @@ import LessonMeta from '../../../components/LessonMeta.astro';
 import Takeaway from '../../../components/Takeaway.astro';
 import ConceptFlow from '../../../components/ConceptFlow.astro';
 
-<LessonMeta level="Beginner" minutes={8} verified="15 Aug 2026" kind="Protocol guide" />
+<LessonMeta level="Beginner" minutes={14} verified="16 Aug 2026" kind="Book chapter" />
 
 <Takeaway>MCP connects an AI application to capabilities, A2A lets one agent delegate work to another agent, and A2UI lets an agent describe a user interface that a client renders.</Takeaway>
 
 These protocols solve different boundaries. They can appear in one product without competing with one another.
 
-## Begin with the two parties
+## What you will understand
+
+| Chapter | Question you will be able to answer |
+| --- | --- |
+| 1. Boundary | Which two systems need a shared contract? |
+| 2. Complete request | How can MCP, A2A, and A2UI appear together? |
+| 3. Trust | What does each protocol leave to the application? |
+| 4. Simplicity | When is ordinary code the better choice? |
+
+## Chapter 1: Begin with the two parties
 
 | Protocol | The two sides | Shared contract | Reach for it when |
 | --- | --- | --- | --- |
@@ -49,11 +58,13 @@ A2A  → “Which remote agent can own this task?”
 A2UI → “Which interface can the user see and operate?”
 ```
 
-## One passenger-care request
+## Chapter 2: Follow one passenger-care request
 
 A passenger asks an airline assistant to review a disrupted flight and show the available options.
 
 <ConceptFlow steps={['Host receives the passenger request', 'A2A delegates policy review to a remote passenger-care agent', 'That agent uses MCP tools to read the flight and policy systems', 'The remote agent returns findings and an artifact', 'A2UI describes the options panel', 'The client renders approved native components', 'A human reviews any consequential action']} label="MCP, A2A, and A2UI in one product" />
+
+## Chapter 3: A protocol describes a contract, not trust
 
 Each protocol stops at its own boundary:
 
@@ -63,7 +74,7 @@ Each protocol stops at its own boundary:
 
 Authentication, authorization, policy, audit records, and human approval remain application responsibilities.
 
-## Do not use a protocol where a function call is enough
+## Chapter 4: Use ordinary code when it is enough
 
 Use ordinary code when both sides live in one process and share one deployment. A protocol earns its cost when independently deployed systems need a stable contract, separate ownership, language neutrality, or trust-boundary controls.
 
@@ -74,5 +85,9 @@ Use ordinary code when both sides live in one process and share one deployment. 
 | A frontend renders a UI your team already knows at build time | Normal frontend components |
 | An external agent must be discovered and tracked across a long task | A2A may earn its place |
 | An agent must send a portable interface to different renderers | A2UI may earn its place |
+
+## Interview answer in 30 seconds
+
+> I choose the protocol from the boundary. MCP connects an AI host to tools, resources, or prompts exposed by a capability server. A2A lets one independently operated agent discover and delegate a stateful task to another agent. A2UI lets an agent describe a declarative interface that a trusted client renders with approved native components. These protocols can work together, but none of them replaces authentication, authorization, validation, approval, or audit controls.
 
 Next: learn the [A2A task and Agent Card model](./a2a/) and the [A2UI surface and catalog model](./a2ui/).

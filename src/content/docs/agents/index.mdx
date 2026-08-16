@@ -1,11 +1,11 @@
 ---
-title: Agent systems without chaos
-description: Learn tool use, ReAct-style loops, planning, durable state, handoffs, and self-correction as bounded patterns rather than autonomy levels.
+title: Agent systems, from tool choice to safe action
+description: Follow one incident investigation through tool use, observation loops, planning, state, handoffs, validation, and stopping rules.
 contentType: lesson
 level: Intermediate
-minutes: 20
+minutes: 28
 topics: [agents, tools, ReAct, workflows, LangGraph]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 1
 sources:
@@ -33,11 +33,37 @@ import Takeaway from '../../../components/Takeaway.astro';
 import ConceptFlow from '../../../components/ConceptFlow.astro';
 import agentCode from '../../../examples/agents/bounded_tool_loop.py?raw';
 
-<LessonMeta level="Intermediate" minutes={20} verified="15 Aug 2026" />
+<LessonMeta level="Intermediate" minutes={28} verified="16 Aug 2026" kind="Book chapter" />
 
 <Takeaway>An agent lets a model choose the next action. Production code still owns its tools, permissions, state, budget, stopping rule, and side effects.</Takeaway>
 
-## Tool call, workflow, or agent?
+Picture an on-call engineer asking:
+
+> Why did checkout failures increase after yesterday’s deployment?
+
+The next useful check is not obvious. The system may inspect the deployment, read service metrics, search recent incidents, and change direction after each result. This uncertainty can justify an agent.
+
+Now picture a refund workflow:
+
+> Look up the order, apply the written policy, request approval, and issue the refund.
+
+The steps are known. Ordinary workflow code is easier to test and safer to operate.
+
+This chapter teaches the boundary between those two systems.
+
+## What you will understand
+
+| Chapter | Question you will be able to answer |
+| --- | --- |
+| 1. Control | Is this a tool call, workflow, or agent? |
+| 2. Capabilities | Which agent patterns should be learned first? |
+| 3. Observation loop | How does a result change the next action? |
+| 4. Choice | When is an agent the wrong design? |
+| 5. Code boundary | What may the model propose, and what must code enforce? |
+| 6. State | When does LangGraph help? |
+| 7. Correction | What evidence can safely drive another attempt? |
+
+## Chapter 1: Decide who chooses the next step
 
 These terms describe different amounts of model control.
 
@@ -51,7 +77,7 @@ Anthropic draws the same practical boundary: workflows follow predefined code pa
 
 One tool call does not automatically make a system an agent. A model may fill the arguments for a tool while deterministic code controls every step around it.
 
-## A useful learning ladder—not a standard
+## Chapter 2: Learn capabilities as a ladder, not a ranking
 
 There are no official “five levels of agents.” The following capabilities are a study order. Real systems combine them according to the problem, and later rows are not automatically better.
 
@@ -65,7 +91,7 @@ There are no official “five levels of agents.” The following capabilities ar
 
 Treat multi-agent design as another topology, not a higher rank. A single agent can have durable state; several routed specialists can remain stateless.
 
-## Reason and act
+## Chapter 3: Let observations change the next action
 
 The ReAct paper interleaves reasoning with actions and observations so new evidence can change the next action.[^react] In product diagrams, the safer wording is:
 
@@ -87,7 +113,7 @@ Answer: Recommend the morning option and cite both tool results.
 
 The loop earns its cost because the second action depends on the first observation.
 
-## Workflow versus agent
+## Chapter 4: Use an agent only where uncertainty earns it
 
 | Situation | Better starting point | Why |
 | --- | --- | --- |
@@ -100,7 +126,7 @@ The loop earns its cost because the second action depends on the first observati
 
 “If you can draw the workflow, do not use an agent” is a strong starting heuristic, not a law. A graph can contain one agentic node inside otherwise deterministic control flow.
 
-## A bounded loop in code
+## Chapter 5: Put the control boundary in code
 
 This skeleton gives the model two tools. Application code checks the tool name, validates arguments, reserves authorization for itself, and stops the loop after five steps.
 
@@ -108,7 +134,7 @@ This skeleton gives the model two tools. Application code checks the tool name, 
 
 The model proposes. The application executes. For tools with side effects, add idempotency keys, approval, audit records, and a result check before the model claims success.
 
-## Where LangGraph fits
+## Chapter 6: Add explicit state when the work must survive
 
 LangGraph makes state, nodes, edges, checkpoints, and resume behavior explicit.[^langgraph] Use it when the workflow needs branching, loops, human approval, durable execution, or a mixture of deterministic and model-driven steps.
 
@@ -121,7 +147,7 @@ It does not make an unbounded loop safe by itself. You must still define:
 - where a person must approve or correct state;
 - how old checkpoints and long-term memories are deleted.
 
-## Self-correction needs an external signal
+## Chapter 7: Correct from evidence, not confidence
 
 Weak correction asks a model to review its own answer and accepts “looks good.” Strong correction supplies evidence:
 
@@ -135,6 +161,10 @@ Evaluator–optimizer loops work best when the criteria are clear and iteration 
 ## Interview rule
 
 Name the uncertain decision. If no step requires model judgment, begin with normal code. If one step is uncertain, confine the agent there and keep the rest deterministic.
+
+## Interview answer in 30 seconds
+
+> A workflow follows steps the application defines. An agent lets a model choose the next action from a bounded set of tools and observations. I use an agent only when the next useful step cannot be mapped reliably in advance. The application still validates arguments, enforces authorization, controls side effects, limits steps and cost, records state, and decides when to stop or ask a person. For fixed work such as validation, payment, deletion, or approval, I keep the path deterministic.
 
 Next: [resolve agent disagreement](./conflict-resolution/), follow an [MCP tool call](./mcp-tool-selection/), or learn [LangGraph state and persistence](../langgraph/).
 

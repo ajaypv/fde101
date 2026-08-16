@@ -1,11 +1,11 @@
 ---
-title: LangChain
-description: A compact reference to the LangChain Python building blocks you will meet in real applications.
+title: LangChain, from model call to application
+description: Follow one support request through messages, models, structured output, retrieval, tools, retries, and tracing.
 contentType: landing
 level: Beginner
-minutes: 12
+minutes: 24
 topics: [LangChain, Python, models, tools, retrieval]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   label: Overview
   order: 0
@@ -24,13 +24,75 @@ import LessonMeta from '../../../components/LessonMeta.astro';
 import Takeaway from '../../../components/Takeaway.astro';
 import ConceptFlow from '../../../components/ConceptFlow.astro';
 
-<LessonMeta level="Beginner" minutes={12} verified="15 Aug 2026" />
+<LessonMeta level="Beginner" minutes={24} verified="16 Aug 2026" kind="Book chapter" />
 
 <Takeaway>LangChain supplies common interfaces for model calls, messages, tools, retrieval, and agents. Python still controls concurrency, waiting, exceptions, and your business rules.</Takeaway>
 
-<ConceptFlow steps={['Shape the input', 'Run the work', 'Inspect the result', 'Handle failure']} label="A LangChain call you can remember" />
+Imagine a support engineer building this feature:
 
-## The 19 concepts
+> Read the customer’s question, find the relevant policy, return a typed answer, and trace the request.
+
+The feature needs a model, messages, retrieval, output validation, and error handling. LangChain gives these pieces shared interfaces. It does not decide which policy the customer may read or whether the answer is good enough to ship.
+
+## What you will understand
+
+| Chapter | Question you will be able to answer |
+| --- | --- |
+| 1. Purpose | What work does LangChain remove? |
+| 2. Components | Which object owns each part of the request? |
+| 3. Runnables | How do `invoke`, `batch`, and `stream` relate? |
+| 4. Retrieval | How does a question become document context? |
+| 5. Tools and agents | When may the model choose an action? |
+| 6. Async work | What do `await`, `ainvoke`, and `asyncio.sleep` mean? |
+| 7. Failure | Where should retries, tracing, and business rules live? |
+
+## Chapter 1: LangChain gives common shapes to common work
+
+Without a framework, an application can call a model provider directly. That is often the right starting point.
+
+LangChain becomes useful when the application repeatedly needs the same kinds of objects:
+
+- messages with clear roles;
+- prompt templates with named inputs;
+- model calls with sync, async, batch, and streaming interfaces;
+- typed tool descriptions and tool results;
+- documents, splitters, embeddings, vector stores, and retrievers;
+- structured outputs, middleware, callbacks, and traces.
+
+The value is composition. A retriever, prompt, model, and parser can use predictable interfaces even when the underlying provider changes.
+
+The cost is another abstraction layer. Keep provider-specific behavior, latency, retries, streaming, and token use visible in tests and traces.
+
+## Chapter 2: Follow one support request
+
+<ConceptFlow steps={['Receive the question', 'Create messages', 'Retrieve policy documents', 'Build the prompt', 'Call the chat model', 'Validate structured output', 'Trace the result']} label="A LangChain request" />
+
+Suppose the customer asks:
+
+> Can I return an opened laptop after 20 days?
+
+The application handles the request in order:
+
+1. **Messages preserve roles.** The system message defines the task. The human message carries the question.
+2. **A retriever finds policy candidates.** It returns `Document` objects with text and metadata.
+3. **A prompt template assembles the call.** It places the question and selected evidence into a stable format.
+4. **A chat model generates a reply.** The model reads the messages and context.
+5. **Structured output constrains the shape.** The application receives fields such as `decision`, `reason`, and `policy_id`.
+6. **Application code validates the result.** It checks authorization, required citations, and business rules.
+7. **Callbacks and tracing record the path.** A reviewer can see which step failed.
+
+| Object | Plain meaning | Support example |
+| --- | --- | --- |
+| `BaseMessage` | One role-labeled conversation item | System instruction or customer question |
+| Prompt template | A reusable input shape | Policy context plus question |
+| Chat model | The model interface | Generate the answer |
+| `Document` | Text plus metadata | Policy section, source ID, and version |
+| Retriever | A component that returns documents for a query | Find laptop-return clauses |
+| Runnable | A component with a standard execution interface | Retriever, prompt, model, or composed pipeline |
+| Tool | A typed callable the model may request | Look up the order date |
+| Callback or trace | Observation around a run | Duration, inputs, outputs, and errors |
+
+## Chapter 3: Learn the 19 concepts as a map
 
 Read the first row before you build a model call. Read the operations row before you ship it.
 
@@ -42,7 +104,68 @@ Read the first row before you build a model call. Read the operations row before
 | Retrieval | [`Document` and loaders](./documents-loaders/) · [Text splitters](./text-splitters/) · [Embeddings and vector stores](./embeddings-vector-stores/) · [Retrievers](./retrievers/) |
 | Operations | [Callbacks and tracing](./callbacks-tracing/) |
 
-## Words that look similar
+Do not memorize the list in isolation. Follow the lifecycle:
+
+```text
+messages → prompt → model → structured result
+              ↑
+     retrieved documents or tool results
+```
+
+A `Runnable` is the shared execution idea across many of these components. It can be invoked alone or composed with other runnables.
+
+| Need | Interface to start with | What it returns |
+| --- | --- | --- |
+| One input, one final result | `invoke()` | One output |
+| One input without blocking the event-loop caller | `ainvoke()` | An awaitable result |
+| Many independent inputs | `batch()` or `abatch()` | Outputs in batch order, subject to API behavior |
+| Partial results while work continues | `stream()` or `astream()` | An iterator or async iterator of chunks |
+
+Streaming is useful only when the underlying component can provide meaningful updates. Wrapping a non-streaming operation in `astream()` does not make the provider produce tokens earlier.
+
+## Chapter 4: Retrieval supplies external knowledge
+
+LangChain’s retrieval pieces form two different paths.
+
+At ingestion time:
+
+```text
+source → loader → Document → text splitter → embeddings → vector store
+```
+
+At question time:
+
+```text
+question → retriever → Documents → prompt context → chat model
+```
+
+The `Document` keeps page content together with metadata such as source, page, tenant, and version. The retriever returns documents; it does not have to be a vector database. It may call keyword search, an existing enterprise search service, or another API.[^retrieval]
+
+LangChain standardizes the interfaces. Your application still owns parsing quality, chunking choices, authorization filters, relevance labels, and retrieval evaluation.
+
+## Chapter 5: Tools let the model propose an action
+
+A tool has a name, description, and input schema. These fields help the model decide when and how to request it.
+
+Suppose the policy depends on the purchase date. The model may request:
+
+```text
+get_order(order_id="ORD-1047")
+```
+
+The application should then:
+
+1. validate the tool name and arguments;
+2. authorize this user for this order;
+3. execute the narrow function;
+4. return the result as a tool message;
+5. let the model use the result in its answer.
+
+Tool calling is not authorization. A valid schema does not make a payment, deletion, or disclosure safe. Keep those decisions in deterministic code.
+
+Use `create_agent` when the model must choose among allowed actions across a bounded loop. Use a fixed runnable or ordinary Python when the steps are known in advance.
+
+## Chapter 6: Async words belong to different layers
 
 | Word | Owned by | What it means |
 | --- | --- | --- |
@@ -53,7 +176,17 @@ Read the first row before you build a model call. Read the operations row before
 | `abatch()` | LangChain | Run several asynchronous inputs; the base implementation uses `asyncio.gather`. |
 | `astream()` | LangChain | Consume an async iterator of output chunks when the component really supports streaming. |
 
-## When an external tool fails
+The easiest mistake is to treat waiting and retrying as the same operation.
+
+```text
+await tool.ainvoke(input)  → wait for one asynchronous attempt
+asyncio.sleep(2)           → wait two seconds
+with_retry(...)            → define another bounded attempt after a classified failure
+```
+
+`await` does not retry. `sleep` does not remember why you are waiting. A retry policy needs a failure class, attempt limit, delay rule, and safe side-effect boundary.
+
+## Chapter 7: Fail in a controlled way
 
 1. **Classify it.** A timeout, connection reset, `429`, or some `5xx` responses may be transient. Invalid arguments, denied access, and most authentication failures need a different action.
 2. **Retry the smallest call.** Wrap the flaky model or tool, not an entire workflow that may have already sent an email or charged a card.
@@ -62,6 +195,25 @@ Read the first row before you build a model call. Read the operations row before
 
 Continue with [Retries and backoff](./retries-backoff/) for `with_retry()`, `ToolRetryMiddleware`, `await`, and `asyncio.sleep()`.
 
+Use this failure table during design reviews:
+
+| Failure | First owner | Safe response |
+| --- | --- | --- |
+| Invalid structured output | Model/prompt boundary | Validate, repair once when safe, then fail visibly |
+| Temporary model timeout | Provider call | Retry with bounded backoff and jitter |
+| Tool arguments do not match schema | Tool-call boundary | Return a clear tool error; let the model correct once |
+| User cannot access the order | Application authorization | Deny. Do not ask the model to override policy |
+| Side effect may have completed before timeout | Application workflow | Check idempotency key or external status before retrying |
+| Answer cites the wrong policy | Evaluation and product logic | Block or flag the answer; add the case to regression tests |
+
 ## Where LangChain stops
 
 LangChain can standardize integrations. It cannot decide which customer data a tool may read, whether a payment is safe to repeat, or what quality is acceptable. Keep those decisions in explicit application policy and tests.
+
+## Interview answer in 30 seconds
+
+> LangChain provides shared interfaces for messages, prompts, chat models, structured output, runnables, documents, retrievers, tools, middleware, and tracing. I use it when those abstractions remove repeated integration work. I still keep authorization, business rules, side-effect safety, concurrency, and release criteria in application code. `invoke` runs one input, `ainvoke` is the async interface, and retries are a separate bounded policy. If the workflow needs durable state, branching, pause, or resume, I move orchestration to LangGraph.
+
+Next: build the same request as an explicit [LangGraph workflow](../langgraph/), or learn [agents without unbounded loops](../agents/).
+
+[^retrieval]: LangChain, [retrieval overview](https://docs.langchain.com/oss/python/langchain/retrieval), describes loaders, splitters, embeddings, vector stores, and retrievers as modular building blocks.

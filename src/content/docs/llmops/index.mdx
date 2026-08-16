@@ -1,11 +1,11 @@
 ---
-title: LLMOps is the evidence around the model
-description: Trace requests, evaluate versions, gate releases, monitor production, and turn failures into regression cases.
+title: LLMOps, from one trace to a safer release
+description: Follow one failed answer through tracing, evaluation, release gates, production monitoring, and regression repair.
 contentType: lesson
 level: Intermediate
-minutes: 20
+minutes: 26
 topics: [LLMOps, observability, tracing, regression evaluation]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 1
 sources:
@@ -32,11 +32,31 @@ import LessonMeta from '../../../components/LessonMeta.astro';
 import Takeaway from '../../../components/Takeaway.astro';
 import gateCode from '../../../examples/llmops/regression_gate.py?raw';
 
-<LessonMeta level="Intermediate" minutes={20} verified="15 Aug 2026" />
+<LessonMeta level="Intermediate" minutes={26} verified="16 Aug 2026" kind="Book chapter" />
 
 <Takeaway>Tracing tells you what happened. Evaluation tells you whether it was good. Release gates and production monitoring turn both into operating decisions.</Takeaway>
 
-## One request, not one model call
+Imagine a customer reports:
+
+> The assistant cited the refund policy, but it gave me the wrong deadline.
+
+The team needs more than the final sentence. They need the query, retrieved document IDs, policy version, final context, model and prompt version, latency, cost, and validation result. Then they need a test that prevents the same failure from returning.
+
+That work is LLMOps.
+
+## What you will understand
+
+| Chapter | Question you will be able to answer |
+| --- | --- |
+| 1. Trace | What happened inside one request? |
+| 2. Evidence | How do traces, metrics, evals, and audit records differ? |
+| 3. Reproduction | Which versions must be recorded? |
+| 4. Feedback loop | How does a production failure become a regression test? |
+| 5. Release gate | What evidence should block a deployment? |
+| 6. Monitoring | What should the team watch after release? |
+| 7. Tooling | When should a team choose Langfuse, LangSmith, or OpenTelemetry? |
+
+## Chapter 1: Observe one request, not only one model call
 
 ```text
 trace 8f31: “Why did payment fail yesterday?”       1,462 ms
@@ -52,7 +72,7 @@ trace 8f31: “Why did payment fail yesterday?”       1,462 ms
 
 A **trace** represents the request. Each timed operation is a **span**. Without this tree, a slow answer looks like “the LLM was slow” even when a retrying retriever consumed half the latency.
 
-## Keep four evidence types separate
+## Chapter 2: Keep four evidence types separate
 
 | Evidence | Main question | Example |
 | --- | --- | --- |
@@ -63,7 +83,7 @@ A **trace** represents the request. Each timed operation is a **span**. Without 
 
 An observability platform can calculate latency and token counts from telemetry. It cannot infer “quality” without a label, rubric, evaluator, or user signal.
 
-## Version enough to reproduce a failure
+## Chapter 3: Record enough to reproduce the failure
 
 For each trace and evaluation run, retain safe identifiers for:
 
@@ -78,7 +98,7 @@ Store the exact final context or its governed reference when policy permits. Red
 
 OpenTelemetry now maintains generative-AI conventions in a separate project that extends the core semantic conventions, and the schema continues to evolve.[^otel] Keep your application's internal event model stable and map it to an external schema at the exporter boundary.
 
-## Offline and online evaluation form a loop
+## Chapter 4: Turn production failures into offline cases
 
 ```text
 versioned cases → local/CI experiment → release gate
@@ -92,7 +112,7 @@ reviewed failure ← production trace ← monitoring
 
 LangSmith documents both modes and the production-failure feedback loop.[^langsmith-eval]
 
-## A golden set is not perfect truth
+## Chapter 5: Use a golden set to make release decisions
 
 A useful case records the behavior that matters:
 
@@ -110,7 +130,7 @@ Include normal, edge, unanswerable, exact-identifier, permission, and prompt-inj
 
 The thresholds in this code are examples. Set them from product risk, the current baseline, and an agreed latency/cost budget. Inspect every severe failure: a good average cannot excuse one cross-tenant leak.
 
-## What to monitor
+## Chapter 6: Monitor quality and operations together
 
 | Group | Useful signals |
 | --- | --- |
@@ -122,7 +142,7 @@ The thresholds in this code are examples. Set them from product risk, the curren
 
 Segment important metrics by route, tenant class, language, source type, and release. A global average can hide a broken customer corpus.
 
-## Langfuse, LangSmith, or your existing stack?
+## Chapter 7: Choose the smallest operating toolchain
 
 | Option | Useful when | Remember |
 | --- | --- | --- |
@@ -131,6 +151,10 @@ Segment important metrics by route, tenant class, language, source type, and rel
 | OpenTelemetry + existing backend | The organization already operates a telemetry standard and wants minimal new tooling | You still need an evaluation dataset, graders, and review workflow |
 
 Langfuse and LangSmith overlap. Installing both is not a maturity requirement; choose the smallest toolchain that makes a failure reproducible and a release decision defensible.[^langfuse][^langsmith-observe]
+
+## Interview answer in 30 seconds
+
+> LLMOps is the evidence and operating loop around an AI feature. A trace shows what happened in one request. Metrics show behavior over time. Evaluations judge whether a version met a defined criterion. Audit records capture consequential access and approvals. I version prompts, models, tools, retrieval, indexes, datasets, and evaluators so failures can be reproduced. Offline cases gate releases, production monitoring finds new failures, and reviewed failures return to the regression set.
 
 Next: design [semantic caching](./semantic-caching/) or review the [production RAG checklist](../field-guide/production-rag-checklist/).
 

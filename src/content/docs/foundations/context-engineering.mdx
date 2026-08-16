@@ -1,11 +1,11 @@
 ---
-title: Prompt engineering vs context engineering
-description: Learn the difference between clear instructions and the runtime information a model needs to work inside a real codebase.
+title: Context engineering, from vague request to working change
+description: Follow one FastAPI ticket through clear instructions, selected repository context, validation, security, and evaluation.
 contentType: lesson
 level: Beginner
-minutes: 14
+minutes: 22
 topics: [prompt engineering, context engineering, coding assistants]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 3
 sources:
@@ -29,7 +29,7 @@ import Takeaway from '../../../components/Takeaway.astro';
 import ConceptFlow from '../../../components/ConceptFlow.astro';
 import contextCode from '../../../examples/foundations/context_packet.py?raw';
 
-<LessonMeta level="Beginner" minutes={14} verified="15 Aug 2026" />
+<LessonMeta level="Beginner" minutes={22} verified="16 Aug 2026" kind="Book chapter" />
 
 <Takeaway>Prompt engineering defines the task and response contract. Context engineering selects the trustworthy runtime information the model needs to perform that task.</Takeaway>
 
@@ -43,7 +43,18 @@ They open a coding assistant but paste only this generic sentence, leaving the t
 
 The sentence sounds professional, but it does not describe the ticket or the codebase. The assistant still has to guess what to build and how this service works.
 
-## The three-part mental model
+## What you will understand
+
+| Chapter | Question you will be able to answer |
+| --- | --- |
+| 1. Mental model | How do “tell it, show it, check it” fit together? |
+| 2. Difference | What belongs to the prompt, and what belongs to context? |
+| 3. Worked ticket | Which files does a FastAPI change need? |
+| 4. Selection | How can the application choose a small context packet? |
+| 5. Risk | What must never enter the model context? |
+| 6. Evaluation | How do we test the context builder itself? |
+
+## Chapter 1: Tell it, show it, and check it
 
 Use this whenever a model works on real code:
 
@@ -62,7 +73,7 @@ The message sent to the assistant misses the first two steps:
 
 Prompt engineering addresses the first gap. Context engineering addresses the second.
 
-## Prompt and context answer different questions
+## Chapter 2: Prompt and context answer different questions
 
 | Question | Prompt engineering | Context engineering |
 | --- | --- | --- |
@@ -77,7 +88,7 @@ They are complements, not rivals. A perfect prompt cannot reveal a private API t
 
 At the API level, the prompt text is itself part of the model's context. The two engineering terms describe different areas of focus, not two separate requests sent to the model.
 
-## Walk through the FastAPI ticket
+## Chapter 3: Walk through the FastAPI ticket
 
 ### 1. Tell it what done means
 
@@ -124,7 +135,7 @@ A fluent explanation is not a passing result. The code must compile and the acce
 
 <ConceptFlow steps={['Tell it: define the change', 'Show it: select trusted context', 'Check it: compile, test, and review']} label="FastAPI refresh-token request" />
 
-## A quick context checklist
+## Chapter 4: Select a small, useful context packet
 
 | Context type | Coding-assistant example | Question to ask |
 | --- | --- | --- |
@@ -138,7 +149,7 @@ A fluent explanation is not a passing result. The code must compile and the acce
 
 Do not send every row on every request. Context engineering is the selection process, not the act of filling the context window.
 
-## A deterministic selector
+### A deterministic selector
 
 This standard-library example ranks synthetic project files by task tags. Before ranking, it blocks secrets, stale material, and irrelevant files. It then fits the remaining items into a fixed illustrative budget.
 
@@ -176,7 +187,7 @@ REJECTED CONTEXT
 
 The token counts are fixture metadata, not real tokenizer output. A production implementation should use the selected model’s tokenizer, derive authorization from the signed-in identity, and test whether the selection improves task success.
 
-## Four context risks
+## Chapter 5: Treat repository context as untrusted and governed
 
 | Risk | Example | Control |
 | --- | --- | --- |
@@ -189,7 +200,7 @@ Retrieved content can also contain instructions written by an attacker. OWASP ca
 
 Enforce filesystem, network, and tool permissions outside the model. Those controls limit what a followed injection can do; prompt wording alone does not.
 
-## Evaluate the context builder, not just the prose
+## Chapter 6: Evaluate the context builder, not just the prose
 
 Create a small set of real coding tasks with acceptance tests. For each context-builder version, record the same signals:
 

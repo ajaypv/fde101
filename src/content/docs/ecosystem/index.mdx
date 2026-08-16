@@ -1,11 +1,11 @@
 ---
-title: The AI library map
-description: Choose an agent framework, evaluation harness, prompt platform, or observability tool by the job it must do.
+title: AI libraries, from requirement to responsible choice
+description: Choose an application framework, agent runtime, evaluation harness, prompt platform, or observability tool by the job it must own.
 contentType: lesson
 level: Beginner
-minutes: 16
+minutes: 22
 topics: [frameworks, evaluation, prompting, observability, CrewAI]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 1
 sources:
@@ -46,15 +46,38 @@ sources:
 import LessonMeta from '../../../components/LessonMeta.astro';
 import Takeaway from '../../../components/Takeaway.astro';
 
-<LessonMeta level="Beginner" minutes={16} verified="15 Aug 2026" />
+<LessonMeta level="Beginner" minutes={22} verified="16 Aug 2026" kind="Book chapter" />
 
 <Takeaway>A library is useful when it removes work you actually have. First name the job; then choose the smallest tool that performs it.</Takeaway>
+
+Imagine a team planning a support assistant. One engineer proposes LangChain. Another proposes CrewAI. A third wants LangGraph, Ragas, Promptfoo, Langfuse, and Phoenix.
+
+The tool list grows before the team has written the problem.
+
+Start with the jobs instead:
+
+1. call a model and retrieve policy documents;
+2. pause a claims workflow for human approval;
+3. compare a new prompt with the accepted version;
+4. trace a bad production answer.
+
+These are different jobs. They may need different tools, or ordinary application code may already solve them.
 
 Someone says, “We use CrewAI.” That tells us less than it first appears. It does not tell us whether the application has safe permissions, useful evaluations, recoverable state, or a reliable release process. It tells us which vocabulary and runtime the team chose for part of the system.
 
 The name you heard as **“Crevo AI” is most likely CrewAI**. CrewAI organizes work around agents, tasks, crews, and flows. A crew is a group of role-based agents. A flow is the surrounding event-driven process that carries state and chooses routes.[^crewai]
 
-## Remember four shelves
+## What you will understand
+
+| Chapter | Question you will be able to answer |
+| --- | --- |
+| 1. Categories | Which job is the library being hired to do? |
+| 2. Frameworks | Which control model fits the application? |
+| 3. Evaluation | Which failure must the test harness catch? |
+| 4. Prompting | How should prompts be versioned and compared? |
+| 5. Adoption | Which questions expose unnecessary lock-in or risk? |
+
+## Chapter 1: Put each library on the right shelf
 
 | Shelf | Question it answers | Examples |
 |---|---|---|
@@ -65,7 +88,7 @@ The name you heard as **“Crevo AI” is most likely CrewAI**. CrewAI organizes
 
 One product may sit on two shelves. That is normal. The categories describe the **job you are buying it for**, not the logo on its homepage.
 
-## 1. Frameworks: choose the control model
+## Chapter 2: Choose a framework from the control model
 
 | Framework | Reach for it when… | Mental model | Official documentation |
 |---|---|---|---|
@@ -81,7 +104,7 @@ One product may sit on two shelves. That is normal. The categories describe the 
 
 A support-ticket classifier has one model call and a strict JSON schema. Plain provider SDK code may be enough. A claims workflow that retrieves policy, calls two services, waits for an adjuster, and resumes tomorrow benefits from explicit state and persistence. The second problem can justify LangGraph; the first may not justify any orchestration framework.
 
-## 2. Evaluation: choose the failure you need to catch
+## Chapter 3: Choose evaluation from the failure
 
 | Tool | Best first use | What it does not replace | Official documentation |
 |---|---|---|---|
@@ -100,7 +123,7 @@ Do not begin with “Which evaluator has the most metrics?” Begin with one fai
 4. **Inspect disagreements.** A score without the failing cases does not explain a regression.
 5. **Gate the release.** A cross-tenant leak should fail the build even when the average score is high.
 
-## 3. Prompting: manage a versioned program, not a clever paragraph
+## Chapter 4: Treat prompting as a versioned program
 
 Prompt work has four separate jobs:
 
@@ -113,7 +136,7 @@ Prompt work has four separate jobs:
 
 The prompt is only one input to the application. Record the retrieved context, tool schemas, model and index versions too. Otherwise a prompt comparison may really be a data or retrieval comparison.
 
-## A five-question adoption test
+## Chapter 5: Run a five-question adoption test
 
 Before adding any library, answer:
 
@@ -124,6 +147,10 @@ Before adding any library, answer:
 5. Which representative evaluation proves the integration helped?
 
 If those answers are vague, keep the experiment behind a small adapter. Framework choice is reversible only when business logic and data contracts do not leak into every library-specific object.
+
+## Interview answer in 30 seconds
+
+> I choose AI libraries by the job they must own. LangChain standardizes model, message, tool, and retrieval interfaces. LangGraph makes stateful control flow explicit. CrewAI and AutoGen offer different agent coordination models. Ragas, DeepEval, and Promptfoo help run repeatable evaluations. LangSmith, Langfuse, and Phoenix overlap across traces, prompts, datasets, and evaluation. I start with the smallest tool, keep business rules behind my own interfaces, and verify that the new dependency improves a representative evaluation.
 
 Continue with [reranking models](./reranking-models/) or [classification metrics](../evals/classification-metrics/).
 

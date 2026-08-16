@@ -1,11 +1,11 @@
 ---
-title: LLM foundations
-description: Understand tokens, context windows, embeddings, generation, and hallucinations through one small example.
+title: LLM foundations, from text to answer
+description: Follow one support question through tokens, context, retrieval, generation, grounding, and evaluation.
 contentType: lesson
 level: Beginner
-minutes: 12
+minutes: 20
 topics: [LLM, tokens, context, embeddings, hallucinations]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 1
 sources:
@@ -13,22 +13,120 @@ sources:
     url: https://docs.langchain.com/oss/python/langchain/retrieval
     publisher: LangChain
     type: official-doc
+  - title: Effective context engineering for AI agents
+    url: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    publisher: Anthropic
+    type: official-doc
 ---
 
 import LessonMeta from '../../../components/LessonMeta.astro';
 import Takeaway from '../../../components/Takeaway.astro';
+import ConceptFlow from '../../../components/ConceptFlow.astro';
 
-<LessonMeta level="Beginner" minutes={12} verified="15 Aug 2026" />
+<LessonMeta level="Beginner" minutes={20} verified="16 Aug 2026" kind="Book chapter" />
 
 <Takeaway>An LLM predicts the next token from the tokens already in its context; it does not consult your private data unless your system supplies that data.</Takeaway>
 
-Suppose the input is:
+Picture a support engineer starting the day with this question:
+
+> Can this customer reset an expired security key without calling support?
+
+The language model may know what a security key is. It does not know this company’s current recovery policy. It does not know which customer is asking. It cannot see the private account system unless the application connects it.
+
+This chapter explains what the model does, what the application must supply, and where mistakes begin.
+
+## What you will understand
+
+| Chapter | Question you will be able to answer |
+| --- | --- |
+| 1. Prediction | What does an LLM actually do when it writes? |
+| 2. Tokens | What does the model read and produce? |
+| 3. Context | What information can the model use during this call? |
+| 4. Embeddings | How can the application find related text? |
+| 5. Generation | Why can the same input produce different wording? |
+| 6. Grounding | Why can a fluent answer still be wrong? |
+| 7. Application flow | How do these pieces form a useful product? |
+
+## Chapter 1: An LLM predicts what comes next
+
+Suppose the input ends with:
 
 > The customer cannot sign in because…
 
-The model assigns probabilities to possible next tokens—perhaps “their”, “the”, or “SSO”—selects one, and repeats. Training gives it broad patterns. Your application gives it the current instructions, conversation, tools, and retrieved evidence.
+The model estimates which token could come next. It might assign probability to “their,” “the,” or “SSO.” It selects a token, adds it to the sequence, and predicts again. The answer grows one token at a time.
 
-## Five terms to keep separate
+Training gives the model broad language patterns. It does not turn the model into a live database.
+
+The application supplies the information for this request:
+
+- the current instructions;
+- the user’s question;
+- selected conversation history;
+- retrieved documents;
+- available tool descriptions and tool results.
+
+> **Mental model:** the model writes from the material on its desk. The application decides what reaches the desk.
+
+## Chapter 2: Tokens are the pieces the model processes
+
+A token is a unit of text used by the model. One token is not always one word. A short word may be one token. A long or unusual word may become several. Punctuation and spaces can matter too.
+
+Why should an engineer care?
+
+| Token concern | What the user may notice | Engineering response |
+| --- | --- | --- |
+| Input is too large | Important evidence is removed or the request fails | Select and compress context before the call |
+| Output limit is too small | The answer stops halfway | Reserve enough output budget for the task |
+| Repeated history grows | Each turn becomes slower and more expensive | Summarize or retrieve only relevant history |
+| Tool schemas are large | Less room remains for evidence | Expose only the tools needed for this request |
+
+A token budget is a capacity limit. It is not a quality score. Filling every available token can make the answer worse when the extra text is irrelevant.
+
+## Chapter 3: Context is the model’s working set
+
+Think of the context window as a desk.
+
+The model can work with what the application places on the desk for this call. The desk is not a database. It is not long-term memory. It does not automatically contain the company’s files.
+
+An application commonly assembles the desk from:
+
+```text
+system instructions
++ current user question
++ selected conversation history
++ retrieved company documents
++ tool descriptions and results
+```
+
+Keep these ideas separate:
+
+| Term | Plain meaning | Support-assistant example |
+| --- | --- | --- |
+| Prompt | The instruction or request | “Explain the recovery rule and cite the policy” |
+| Context | Everything available to this model call | Prompt, account facts, policy passage, and tool result |
+| Message history | Earlier turns resent to the model | The customer already said the key expired yesterday |
+| Stored memory | Information saved outside the model for later use | A preference stored in a governed database |
+| Model weights | Patterns learned during training | General knowledge about authentication |
+
+The model is stateless between ordinary API calls. If a fact must survive, the application must resend it or store and retrieve it. Anthropic describes context engineering as curating the full token set used at inference time, not merely polishing one prompt.[^context-engineering]
+
+## Chapter 4: Embeddings help the application find related text
+
+The customer asks:
+
+> Can I replace my expired security key?
+
+The policy may say:
+
+> Hardware authenticator recovery requires identity verification.
+
+The wording differs, but the meaning is related. Keyword search may miss the connection.
+
+An embedding converts text into a vector of numbers. Texts with related meaning can appear near one another in that vector space. A search system compares the question vector with stored document vectors and returns likely candidates.[^retrieval]
+
+Embeddings do not write the answer. They help find text that the generation model can read.
+
+### Five terms to keep separate
 
 | Term | Plain meaning | Why an FDE cares |
 | --- | --- | --- |
@@ -38,25 +136,65 @@ The model assigns probabilities to possible next tokens—perhaps “their”, �
 | **Generation** | Producing an answer token by token | Sampling settings affect variation, not factual access |
 | **Hallucination** | A plausible claim unsupported by available evidence | You need grounding, abstention, and evaluation—not only a better prompt |
 
-## Context is working memory
+> **Mental model:** embeddings help the system find candidates. The original text supplies the evidence.
 
-Think of the context window as a desk. The model can work with what is placed on the desk for this call. The desk is not a database, and adding everything usually makes the work harder.
+## Chapter 5: Generation turns context into an answer
 
-An application commonly assembles context from:
+After the application builds the context, the model generates a response token by token.
 
-```text
-system instructions
-+ the current user question
-+ selected conversation history
-+ retrieved company documents
-+ tool results
+Sampling settings can change how varied the wording is. They do not grant access to missing facts. A lower temperature cannot recover a policy that retrieval failed to supply.
+
+Structured output can make the response easier for code to parse:
+
+```json
+{
+  "decision": "needs_human_verification",
+  "reason": "The policy requires identity verification.",
+  "policy_id": "AUTH-17"
+}
 ```
 
-The exact order and labels matter because the model must distinguish instructions from evidence.
+The schema controls shape. It does not prove the decision is correct or authorized.
 
-## Embeddings are for finding, not answering
+## Chapter 6: Fluency is not evidence
 
-An embedding maps text to a vector so that semantically related text can be found with a distance or similarity function. In a RAG system, embeddings normally help select candidate passages. The generation model then reads the actual passage text.[^retrieval]
+An answer can sound natural and still fail.
+
+Suppose the retrieved policy says:
+
+> Self-service recovery is allowed only for enrolled backup devices. All other cases require support verification.
+
+The model replies:
+
+> Yes. Any expired security key can be reset without support.
+
+The sentence is clear. It is also unsupported.
+
+| Failure | What happened | First place to inspect |
+| --- | --- | --- |
+| Missing evidence | The correct policy never reached the context | Parsing, retrieval, filters, and context packing |
+| Ignored condition | The policy arrived, but the answer dropped “only for enrolled backup devices” | Prompt, generation, and faithfulness evaluation |
+| Stale evidence | The system retrieved an older policy version | Ingestion, versioning, and cache invalidation |
+| Unauthorized evidence | The answer used a document the user could not read | Retrieval-time authorization |
+| Unsupported claim | The model added a rule absent from the evidence | Claim-level grounding and citation checks |
+
+Grounding means the answer stays supported by the supplied evidence. Abstention means the system says it cannot decide when the evidence is missing or conflicting.
+
+## Chapter 7: Follow one useful application flow
+
+<ConceptFlow steps={['User asks a question', 'Application authenticates the user', 'Search finds authorized evidence', 'Application builds a small context packet', 'Model generates a structured answer', 'Code validates citations and policy', 'System answers or abstains', 'Trace and evaluation record the result']} label="A grounded support answer" />
+
+Return to the security-key question:
+
+1. **Authenticate.** Identify the user and tenant.
+2. **Retrieve.** Search only the policy and account facts the user may access.
+3. **Assemble.** Keep the applicable policy conditions and source metadata.
+4. **Generate.** Ask the model to explain the rule and cite the evidence.
+5. **Validate.** Check the response shape, citations, and protected business rules.
+6. **Decide.** Answer when evidence is sufficient. Otherwise ask for information or escalate.
+7. **Measure.** Record retrieval quality, answer faithfulness, task success, latency, and cost.
+
+The model is one part of this path. Authentication, authorization, data freshness, validation, and monitoring belong to the application around it.
 
 ## Questions to ask in the field
 
@@ -66,4 +204,11 @@ An embedding maps text to a vector so that semantically related text can be foun
 - What data is forbidden from entering the model context?
 - What latency and cost budget applies to one answer?
 
+## Interview answer in 30 seconds
+
+> An LLM generates text by predicting the next token from the context available in one call. Its training gives it broad patterns, but the application must supply current and private facts through context, retrieval, or tools. Embeddings help retrieve related text; the generation model reads that text and writes the response. Because fluent text can still be unsupported, I validate citations, test grounding and correctness, enforce authorization outside the model, and make the system abstain when evidence is insufficient.
+
+Next: learn how to [assemble context for a real codebase](../context-engineering/), follow [RAG from question to answer](../../rag/), or see how [evaluation separates retrieval from generation](../../evals/).
+
 [^retrieval]: LangChain’s [retrieval overview](https://docs.langchain.com/oss/python/langchain/retrieval) separates indexing from runtime retrieval and generation.
+[^context-engineering]: Anthropic, [“Effective context engineering for AI agents”](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents), describes context as the tokens available during inference, including instructions, tools, retrieved data, and history.

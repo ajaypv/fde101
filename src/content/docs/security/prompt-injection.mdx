@@ -1,11 +1,11 @@
 ---
-title: Prompt injection needs hard boundaries
-description: Treat retrieved content as untrusted data and enforce tool, authorization, recipient, and approval rules outside the model.
+title: Prompt injection, from malicious text to blocked action
+description: Follow one poisoned email through context, tool selection, authorization, policy, approval, execution, and audit controls.
 contentType: lesson
 level: Intermediate
-minutes: 17
+minutes: 24
 topics: [prompt injection, agent safety, least privilege, guardrails]
-lastVerified: 2026-08-15
+lastVerified: 2026-08-16
 sidebar:
   order: 1
 sources:
@@ -32,11 +32,21 @@ import LessonMeta from '../../../components/LessonMeta.astro';
 import Takeaway from '../../../components/Takeaway.astro';
 import guardCode from '../../../examples/security/guarded_email_action.py?raw';
 
-<LessonMeta level="Intermediate" minutes={17} verified="15 Aug 2026" />
+<LessonMeta level="Intermediate" minutes={24} verified="16 Aug 2026" kind="Book chapter" />
 
 <Takeaway>A model can read an instruction inside untrusted content and propose a dangerous action. The security boundary is the code that controls data and tools—not a sentence telling the model to behave.</Takeaway>
 
-## The ordinary-looking email
+## What you will understand
+
+| Chapter | Question you will be able to answer |
+| --- | --- |
+| 1. Attack | How can ordinary content become an instruction? |
+| 2. Action path | Where can code stop the consequence? |
+| 3. Control layers | Which layer owns each guardrail? |
+| 4. Limits | Which guardrails reduce risk but do not guarantee safety? |
+| 5. Evaluation | How do we prove protected boundaries held? |
+
+## Chapter 1: Begin with an ordinary-looking email
 
 ```text
 User request: Summarize my unread email.
@@ -50,7 +60,7 @@ The malicious instruction arrived indirectly through content the agent was asked
 
 Labeling the email as data helps the model reason about its role, but natural-language separation is not an enforceable sandbox. OWASP states that prompt injection has no foolproof model-only prevention and recommends overlapping controls such as least privilege, external-content separation, and approval for high-risk actions.[^owasp-injection]
 
-## Follow the action path
+## Chapter 2: Follow the request all the way to the side effect
 
 ```text
 untrusted email says “send the report”
@@ -70,7 +80,7 @@ execute with a narrow credential and write an audit record
 
 The model may propose. It does not grant itself authority.
 
-## Put each control in the right layer
+## Chapter 3: Put each control in the right layer
 
 | Layer | Control | What it limits |
 | --- | --- | --- |
@@ -89,7 +99,7 @@ OWASP's excessive-agency scenario uses an assistant with unnecessary access to m
 
 The function is not a complete email system. It demonstrates the key property: persuasive text cannot change `email:send`, attachment classification, the organization domain, or the confirmation flag.
 
-## Guardrails are not all hard guarantees
+## Chapter 4: Know which guardrails are hard boundaries
 
 | Guardrail | Useful for | Do not claim |
 | --- | --- | --- |
@@ -101,7 +111,7 @@ The function is not a complete email system. It demonstrates the key property: p
 
 Keep credentials and sensitive policy internals out of the system prompt. Critical access checks must be deterministic and auditable, not delegated back to the model.
 
-## A small adversarial suite
+## Chapter 5: Test the protected boundary
 
 Test at least:
 
@@ -115,6 +125,10 @@ Test at least:
 8. an attempt to store the malicious instruction as long-term memory.
 
 The hard release gate is not “the model refused most attacks.” It is “no tested path crossed the protected boundary.”
+
+## Interview answer in 30 seconds
+
+> Prompt injection happens when a model treats untrusted content, such as an email or retrieved document, as an instruction. I assume the model may follow it. The application limits the consequence through retrieval-time authorization, narrow typed tools, deterministic recipient and data-sharing rules, least-privilege credentials, explicit approval for high-impact actions, and audit records. Classifiers and system prompts can reduce risk, but code-enforced policy is the security boundary.
 
 Next: apply the same boundaries to [agent systems](../../agents/) and add safety gates in [LLMOps](../../llmops/).
 
