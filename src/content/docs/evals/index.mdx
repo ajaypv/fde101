@@ -1,15 +1,15 @@
 ---
-title: Evaluation that changes decisions
-description: Measure retrieval, grounded answers, safety, latency, and cost with explicit denominators and release gates.
+title: How to evaluate a RAG system
+description: Evaluate retrieval, generation, end-to-end behavior, and production health with clear metrics and one running example.
 contentType: lesson
 level: Intermediate
-minutes: 26
+minutes: 40
 topics: [evaluation, precision, recall, RAG]
-lastVerified: 2026-08-16
+lastVerified: 2026-08-17
 sidebar:
   order: 1
 sources:
-  - title: Machine Learning Glossary — Precision@k and Recall@k
+  - title: Machine Learning Glossary — ranking metrics
     url: https://developers.google.com/machine-learning/glossary/metrics
     publisher: Google for Developers
     type: official-doc
@@ -17,17 +17,25 @@ sources:
     url: https://docs.langchain.com/langsmith/evaluate-rag-tutorial
     publisher: LangChain
     type: official-doc
+  - title: Evaluation concepts
+    url: https://docs.langchain.com/langsmith/evaluation-concepts
+    publisher: LangChain
+    type: official-doc
+  - title: Context Precision
+    url: https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/
+    publisher: Ragas
+    type: official-doc
+  - title: Context Recall
+    url: https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_recall/
+    publisher: Ragas
+    type: official-doc
   - title: Develop a RAG solution — Information-retrieval phase
     url: https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-information-retrieval
     publisher: Microsoft
     type: official-doc
-  - title: RAGAS — Automated Evaluation of Retrieval Augmented Generation
-    url: https://aclanthology.org/2024.eacl-demo.16/
-    publisher: Association for Computational Linguistics
-    type: paper
-  - title: Knowledge-base evaluation metrics
-    url: https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base-evaluation-metrics.html
-    publisher: Amazon Web Services
+  - title: Model benchmarks and leaderboards — MAP and NDCG
+    url: https://learn.microsoft.com/en-us/azure/foundry/concepts/model-benchmarks
+    publisher: Microsoft
     type: official-doc
 ---
 
@@ -38,117 +46,304 @@ import retrievalMetricsCode from '../../../examples/evals/retrieval_metrics.py?r
 import answerMetricsCode from '../../../examples/evals/rag_answer_metrics.py?raw';
 import flightPolicyEvalCode from '../../../examples/evals/flight_policy_eval.py?raw';
 
-<LessonMeta level="Intermediate" minutes={26} verified="16 Aug 2026" />
+<LessonMeta level="Intermediate" minutes={40} verified="17 Aug 2026" />
 
-<Takeaway>An eval is a repeatable question, expected behavior, scoring rule, and decision threshold—not a demo that looked convincing.</Takeaway>
+<Takeaway>A RAG evaluation asks four questions: Did we find the evidence? Did we use it correctly? Did the user get the right result? Can the system keep doing that safely in production?</Takeaway>
 
-Offline evals provide evidence for a production-readiness decision; they do not prove readiness by themselves. Production evidence also includes authorization and privacy tests, operational limits, online monitoring, drift detection, and user outcomes.
+A polished demo is not proof that a RAG system is ready for production.
 
-## Remember four layers
+The demo shows that one question worked once.
 
-When a RAG reply is wrong, inspect the work in order. The final sentence rarely tells you where the failure began.
+An evaluation shows what works, what fails, and whether a new version is safer to release.
 
-1. **Retrieval:** Did search return the needed evidence, and did reranking and context packing preserve it?
-2. **Generation:** Did the model use that evidence without inventing or missing a condition?
-3. **End-to-end:** Did the user receive the right and useful result, including an abstention when the system lacked evidence?
-4. **Production:** Is the deployed system fast, affordable, reliable, fresh, and secure?
+## The four-part mental model
 
-| Layer | Artifact to inspect | Useful checks | Likely owner when it fails |
+Use this order whenever you test or debug RAG:
+
+1. **Retrieval:** Did we get the right evidence?
+2. **Generation:** Did the model use that evidence correctly?
+3. **End-to-end:** Did the user get the right result?
+4. **Production:** Is the system fast, affordable, reliable, fresh, and secure?
+
+| Part | What goes in | What you inspect | Simple question |
 | --- | --- | --- | --- |
-| 1. Retrieval | Parsed source, search query, ranked passages, final context | Recall@k, Precision@k, and MRR on retrieval; evidence preserved after packing | Ingestion, retrieval, or context assembly |
-| 2. Generation | Final context, response, citations | Faithfulness, relevance, correctness, completeness | Prompt or generation |
-| 3. End-to-end | Complete request, response, and intended task | Task success, correct abstention, and human review | Product or application |
-| 4. Production | Traces, telemetry, source versions, and authorization decisions | p50/p95 latency, cost/query, errors, freshness, and leakage tests | Platform, data, or security |
+| Retrieval | User question and searchable corpus | Retrieved and reranked chunks | Did we get the evidence? |
+| Generation | Question, final context, and instructions | Answer and citations | Did we use the evidence correctly? |
+| End-to-end | Complete request | Final user outcome | Did the task succeed? |
+| Production | Live traffic and system state | Traces, latency, cost, errors, freshness, and access decisions | Can we trust it at scale? |
 
-Keep the order. Rewriting the prompt cannot recover a policy that never reached the context.
+Do not compress these into one “RAG score.”
 
-## Begin with the denominator
+One score hides the location of the failure.
 
-Suppose the top three retrieved documents are:
+## 1. Retrieval evaluation
 
-```text
-refund-policy        relevant
-pricing              not relevant
-security             not relevant
-```
+Retrieval evaluation studies the evidence going **into** the model.
 
-Two documents are known to be relevant: `refund-policy` and `cancellation-policy`.
+### Quick metric map
 
-- **Precision@3 = 1 / 3**: one relevant result divided by the requested `k` of three.
-- **Recall@3 = 1 / 2**: one relevant result found divided by two known relevant results.
+| Metric | Plain question | Best used when |
+| --- | --- | --- |
+| Context relevance | Is this chunk about the user's question? | You want to grade each retrieved chunk |
+| Context precision | Did useful context appear before noise? | Your framework uses judged context relevance and rank |
+| Context recall | Did the retrieved context cover the claims needed for the reference answer? | You have a trustworthy reference answer or source facts |
+| Precision@k | How many of the first `k` results are relevant? | You have binary relevance labels |
+| Recall@k | How much of all known relevant evidence appeared in the first `k` results? | You know the full relevant set |
+| Hit@k | Did at least one relevant result appear? | One useful hit may be enough |
+| MRR | How early did the first relevant result appear? | The first useful result matters most |
+| NDCG@k | Did the most useful results appear near the top? | Relevance has levels such as perfect, useful, weak, and irrelevant |
+| MAP@k | Were relevant results ranked high across many questions? | Several relevant results can exist for each question |
+| Duplicate rate and fact coverage | Did we retrieve varied evidence or repeat the same fact? | The answer needs several different facts |
 
-Written as formulas:[^ranked-metrics]
+The metric name is not enough.
+
+Always record `k`, the denominator, the relevance rule, the dataset, and the evaluator version.
+
+### One running example
+
+The employee asks:
+
+> What is the company's work-from-home policy?
+
+The reviewed policy contains three answer-bearing facts:
+
+1. Employees may work from home for at most two days each week.
+2. A manager must approve the arrangement.
+3. Employees on probation are not eligible.
+
+The retriever returns these four chunks:
+
+| Rank | Retrieved chunk | Relevant? | Fact covered |
+| --- | --- | --- | --- |
+| 1 | Employees may work from home for up to two days per week. | Yes | Weekly limit |
+| 2 | The cafeteria serves lunch from noon to 2 p.m. | No | None |
+| 3 | Work from home requires manager approval. | Yes | Approval |
+| 4 | Reserved parking is available to directors. | No | None |
+
+This small example will stay with us through the chapter.
+
+### Context relevance
+
+Context relevance asks whether a retrieved chunk helps answer the question.
+
+In the example:
+
+- ranks 1 and 3 are relevant;
+- ranks 2 and 4 are not relevant.
+
+This can be a human label, a deterministic rule, or a model-judge label.
+
+The evaluator needs a rubric.
+
+“Mentions the same topic” is weaker than “contains evidence needed to answer.”
+
+### Precision@k
+
+Precision@k asks how clean the first `k` results are.
 
 ```text
 Precision@k = relevant results in the first k / k
-Recall@k    = relevant results in the first k / all known relevant results
 ```
 
-This book calculates Precision@k only when the retriever returned at least `k` results. If it returned fewer, record an incomplete result or rerun with a valid `k`; silently changing the denominator makes comparisons misleading. Recall@k also needs a trustworthy set of known relevant passages. Test questions with no relevant evidence belong in a separate unanswerable-question and abstention suite.
+For the WFH example:
+
+```text
+Precision@4 = 2 relevant results / 4 positions = 0.50
+```
+
+The system found useful evidence.
+
+It also spent half of its context budget on noise.
+
+This book calculates Precision@k only when at least `k` results were returned. If fewer results come back, record the incomplete retrieval or evaluate with a valid `k`. Do not silently change the denominator.[^ranked-metrics]
+
+### Recall@k
+
+Recall@k asks how much of the known relevant evidence we found.
+
+```text
+Recall@k = relevant results in the first k / all known relevant results
+```
+
+For the WFH example:
+
+```text
+Recall@4 = 2 retrieved policy facts / 3 known policy facts = 0.67
+```
+
+The probation rule is missing.
+
+This is the most important fact in the example because it may change the answer for a new employee.
+
+Recall@k needs a trustworthy gold set.
+
+If nobody has identified all relevant evidence, the denominator is unknown.
+
+### Hit@k
+
+Hit@k asks a smaller question:
+
+```text
+Hit@k = 1 if any relevant result appears in the first k; otherwise 0
+```
+
+For the WFH example:
+
+```text
+Hit@4 = 1
+```
+
+That sounds good, but it hides the missing probation rule.
+
+Hit@k is useful when one relevant passage is sufficient.
+
+It is too weak when an answer needs several facts.
+
+### MRR
+
+Reciprocal rank asks where the **first** relevant result appeared.
+
+```text
+Reciprocal rank = 1 / rank of the first relevant result
+MRR = mean reciprocal rank across all test questions
+```
+
+The first result in the WFH example is relevant.
+
+Its reciprocal rank is `1 / 1 = 1.0`.
+
+If the first relevant result appeared at rank 3, the reciprocal rank would be `1 / 3 = 0.33`.
+
+MRR ignores every relevant result after the first.
+
+Pair it with Recall@k when the answer needs multiple passages.
+
+### NDCG@k
+
+Binary labels say only “relevant” or “not relevant.”
+
+Real search results are often more nuanced.
+
+A chunk may answer the question completely, support one condition, mention the topic weakly, or be useless.
+
+NDCG@k supports graded relevance.
+
+It gives more credit when highly useful results appear near the top.
+
+It compares the returned order with an ideal order in which the strongest evidence comes first.[^map-ndcg]
+
+Use NDCG when rank and degree of usefulness both matter.
+
+### MAP@k
+
+Average Precision@k looks at every rank where a relevant result appears for one question.
+
+It rewards a list that places relevant results early and consistently.
+
+Mean Average Precision@k, or MAP@k, averages that value across the test questions.[^ranked-metrics]
+
+Use MAP when each question can have several relevant results.
+
+Use MRR when the first relevant result is the main goal.
+
+### Context precision and context recall
+
+Evaluation libraries may use these names differently from textbook Precision@k and Recall@k.
+
+For example, Ragas context precision examines whether relevant retrieved chunks are ranked above irrelevant ones. Ragas context recall examines how many claims in a reference answer are supported by retrieved context.[^ragas-context]
+
+That means the denominator may be:
+
+- returned positions for Precision@k;
+- known relevant passages for Recall@k;
+- judged chunk ranks for a context-precision evaluator;
+- reference-answer claims for a context-recall evaluator.
+
+Record the library, metric version, inputs, and rubric beside the score.
+
+### Redundancy and diversity
+
+Imagine the retriever returns four chunks that all repeat the two-day limit.
+
+Precision may look high because all four chunks are relevant.
+
+The answer can still miss manager approval and the probation rule.
+
+Track at least two additional values:
+
+| Check | Simple calculation | What it reveals |
+| --- | --- | --- |
+| Duplicate rate | near-duplicate results / returned results | Wasted context space |
+| Unique fact coverage | distinct gold facts found / all gold facts | Whether the evidence set covers different needs |
+
+MMR can select results that balance relevance and novelty.
+
+MMR is a retrieval or reranking method, not an evaluation metric.
+
+It cannot recover a relevant chunk that never entered the candidate set.
+
+### Runnable retrieval example
+
+The example below keeps the denominators visible in code.
 
 <Code code={retrievalMetricsCode} lang="python" title="src/examples/evals/retrieval_metrics.py" />
 
-## Keep retrieval and generation separate
+## 2. Generation evaluation
 
-A final answer can look good even when retrieval was weak, and strong retrieval can still be followed by a bad answer. Score the two parts separately so a failure points to the component that needs work.
+Generation evaluation studies the answer coming **out of** the model.
 
-| Layer | Metric | Compares | Question it answers |
-| --- | --- | --- | --- |
-| Retrieval | Precision@k | Top `k` passages vs relevance labels | How clean is the retrieved list? |
-| Retrieval | Recall@k | Top `k` passages vs all known relevant passages | Did retrieval find the needed evidence? |
-| Retrieval | MRR | Reciprocal of the first relevant rank, averaged across queries | Did at least one useful result appear early? |
-| ANN index | ANN recall@k | Approximate top `k` IDs vs exact top `k` IDs | How closely does the fast index match exact vector search? |
-| Generation | Faithfulness or groundedness | Answer claims vs retrieved context | Does the supplied evidence support each claim? |
-| Generation | Answer relevance | Answer vs user question | Did the response address what was asked? |
-| Generation | [Correctness](../glossary/answer-correctness/) | Answer vs trusted reference | Does the answer agree with known truth? |
+### Quick metric map
 
-LangSmith documents these as distinct comparison pairs rather than one blended “RAG quality” score.[^rag-eval] RAGAS likewise evaluates retrieval, faithful use of context, and generation quality as separate dimensions.[^ragas]
+| Metric | Plain question | Compare the answer with |
+| --- | --- | --- |
+| Faithfulness or groundedness | Does the evidence support every claim? | Retrieved context |
+| Answer relevance | Did the model answer what the user asked? | User question |
+| Correctness | Does the answer agree with trusted truth? | Reference answer or reviewed facts |
+| Completeness | Did the answer include every decision-changing fact? | Required facts or reference answer |
+| Citation correctness | Does each citation support its attached claim? | Cited passage |
+| Citation coverage | Are important claims cited? | Claims in the answer |
+| Conciseness | Is the answer direct without losing meaning? | Style rubric and task need |
+| Coherence | Is the answer logically organized and readable? | Structure rubric |
+| Instruction following | Did it follow the requested format and constraints? | User and system instructions |
+| Safety | Did it avoid prohibited or unauthorized behavior? | Deterministic policy and reviewed cases |
+| Abstention | Did it refuse to guess when evidence was insufficient? | Answerability label and evidence threshold |
 
-## Flight delay: follow one support ticket
+LangSmith's RAG guide treats correctness, relevance, groundedness, and retrieval relevance as separate comparisons.[^rag-eval]
 
-Picture a support agent opening this fictional ticket. It resembles a normal airline workflow, but the rule is invented for this lesson.
+That separation is useful because one answer can pass one check and fail another.
 
-| Fact available to the system | Status at answer time |
-| --- | --- |
-| The passenger reports a six-hour delay | Known |
-| The itinerary now requires an overnight stay | Unknown |
-| The airline caused the delay | Unknown |
-| The reviewed policy requires **both** an overnight stay and an airline-caused delay | Known |
+### Continue the WFH example
 
-The right response cannot be a confident yes or no. It should explain the two conditions and ask for the missing facts.
+Assume the final context now contains all three policy facts.
 
-Now walk the ticket through the four layers:
+The model answers:
 
-1. **Retrieval:** Search should return the reviewed hotel policy, and context packing should keep it. Suppose retrieval returns that policy plus meal and baggage pages: Hit@3 = `1`, Precision@3 = `1 / 3`, and Recall@3 = `1 / 1`.
-2. **Generation:** If the model says, “Yes. A six-hour delay qualifies,” it answered the topic but ignored both policy conditions. Answer relevance passes; faithfulness and correctness fail.
-3. **End-to-end:** The expected outcome is to explain the conditions and ask for the missing facts. A confident “yes” therefore fails the passenger's task even though the reply sounds clear.
-4. **Production:** A release gate should catch this behavior before deployment. After deployment, traces and sampled reviews should reveal any return of the same failure pattern.
+> Employees can work from home up to two days per week with manager approval.
 
-This table isolates the same ticket at different failure points:
+Now score the answer:
 
-| Run | Retrieval | Generation | End-to-end decision |
-| --- | --- | --- | --- |
-| Retrieval failure | Hit@3 = `0`; Precision@3 = `0 / 3`; Recall@3 = `0 / 1` | Not scored in this stage test | Fix retrieval before judging generation |
-| Generation failure | Hit@3 = `1`; Precision@3 = `1 / 3`; Recall@3 = `1 / 1` | “Yes. A six-hour delay qualifies.” | Block: relevant, but unfaithful and incorrect |
-| Passing run | Hit@3 = `1`; Precision@3 = `1 / 3`; Recall@3 = `1 / 1` | “Six hours alone does not decide eligibility. Does the delay require an overnight stay, and has the airline confirmed that it caused the delay?” | Allow: faithful, relevant, correct, and useful |
+| Check | Result | Reason |
+| --- | --- | --- |
+| Faithfulness | Pass | Both claims appear in the context |
+| Answer relevance | Pass | It directly answers the WFH question |
+| Correctness | Partial or fail | The statement is true but omits an eligibility restriction |
+| Completeness | Fail | It leaves out the probation rule |
+| Citation correctness | Depends on citation | The cited passage must support both included claims |
+| Citation coverage | Depends on product rule | Important policy claims should be traceable |
 
-The denominators tell different stories:[^ranked-metrics]
+This is why “faithful” does not mean “complete.”
 
-- Precision@3 divides the relevant retrieved items by **3 returned positions**.
-- Recall@3 divides the relevant retrieved items by **1 known relevant policy**.
-- Hit@3 asks only whether at least one relevant item appeared. Here it has the same pass/fail value as Recall@3 because the case has exactly one known relevant policy. The metrics differ when several passages are relevant.
+The model did not invent a fact.
 
-The answer labels also compare different evidence:[^rag-eval]
+It still left out a fact that could change the employee's decision.
 
-- **Faithfulness** compares answer claims with retrieved context. “Six hours qualifies” is unsupported by the policy.
-- **Answer relevance** compares the answer with the passenger's question. The wrong “yes” still addresses the question, so it can be relevant but incorrect.
-- **Correctness** compares the answer with the reviewed reference answer. The reference says six hours alone is insufficient.
+A better answer is:
 
-<Code code={flightPolicyEvalCode} lang="python" title="src/examples/evals/flight_policy_eval.py" />
+> Employees may work from home up to two days per week with manager approval. Employees on probation are not eligible. [Policy §4.2]
 
-This example leaves answer labels unscored when the gold policy is absent so the first diagnosis stays at the retrieval layer. A separate end-to-end suite should still judge what the user finally saw, including whether the system abstained safely.
+### Four answers, four diagnoses
 
-## One question, four different failures
+Use this smaller return-policy case to see how the labels separate:
 
 ```text
 Question: What is the return window?
@@ -157,29 +352,62 @@ Retrieved context:
 - Returns are accepted for 30 days.
 - The company was founded in 1998.
 
-Trusted reference: The return window is 30 days, and a receipt is required.
+Trusted reference:
+The return window is 30 days, and a receipt is required.
 ```
 
-| Generated answer | Grounded? | Relevant? | Correct? | Diagnosis |
+| Generated answer | Faithful? | Relevant? | Correct? | Diagnosis |
 | --- | --- | --- | --- | --- |
-| “Returns are accepted for 30 days.” | Yes | Yes | Yes | Supported, direct, and matches the reference |
-| “Returns are accepted for 30 days without a receipt.” | No | Yes | No | The receipt claim lacks context support and contradicts the trusted reference |
-| “The company was founded in 1998.” | Yes | No | No | Supported by context, but it does not answer the question |
-| “Returns are accepted for 60 days.” | No | Yes | No | It addresses the question but contradicts the evidence and reference |
+| “Returns are accepted for 30 days.” | Yes | Yes | Yes | Direct and supported, but check completeness separately |
+| “Returns are accepted for 30 days without a receipt.” | No | Yes | No | The receipt claim is unsupported and contradicts the reference |
+| “The company was founded in 1998.” | Yes | No | No | Supported by context, but unrelated to the question |
+| “Returns are accepted for 60 days.” | No | Yes | No | It answers the topic but contradicts evidence and truth |
 
-A grounded answer can still be wrong when the indexed source is stale. A correct answer can be ungrounded when the model supplies a fact that the retrieved context never supported. Keep both checks.
+A grounded answer can still be wrong when the indexed source is stale.
 
-The following provider-neutral shape computes retrieval metrics first and injects answer grading as a separate interface. The grader might use reviewed rules, humans, or a calibrated model judge; the interface does not pretend that a model judge is ground truth.
+A correct answer can be ungrounded when the model knows a fact that the supplied evidence did not contain.
+
+Keep both checks.
+
+### LLM-as-a-judge setup
+
+A model judge can help score qualities that are hard to express as code.
+
+Give the judge only the inputs needed for the metric:
+
+1. **Question** — what the user asked.
+2. **Retrieved context** — the evidence available to the answer model.
+3. **Generated answer** — the output being evaluated.
+4. **Reference answer or required facts** — include these only when the metric needs trusted truth.
+5. **Rubric** — define what pass, partial, and fail mean.
+
+Do not ask one vague question such as “Is this a good answer?”
+
+Ask one narrow question per score.
+
+| Score | Minimum judge inputs | Example judge question |
+| --- | --- | --- |
+| Faithfulness | Context and answer | Does the context support every answer claim? |
+| Relevance | Question and answer | Does the answer directly address the question? |
+| Correctness | Question, answer, and reference | Does the answer agree with the reviewed facts? |
+| Completeness | Answer and required facts | Which required facts are missing? |
+| Citation correctness | Answer and cited passages | Does each cited passage support its attached claim? |
+
+Use deterministic code for exact checks such as JSON shape, required keys, allowed citation IDs, and length limits.
+
+Calibrate model judges against a human-reviewed set.
+
+Version the judge model and rubric.
+
+Inspect disagreement cases.
+
+A judge is another fallible model, not ground truth.[^evaluation-concepts]
 
 <Code code={answerMetricsCode} lang="python" title="src/examples/evals/rag_answer_metrics.py" />
 
-Always report `k`, the relevance definition, dataset size, label method, aggregation method, and evaluator version. “Precision improved” is incomplete without them.
-
-## Evaluate a generated summary
+### Evaluate a generated summary
 
 A summary can sound natural while dropping a condition.
-
-Return to the fictional airline policy:
 
 ```text
 Source:
@@ -190,109 +418,320 @@ Bad summary:
 Passengers receive a hotel after a long delay.
 ```
 
-The summary is short and relevant to the topic.
+The summary is short.
 
-It is still wrong. It replaced two required conditions with the vague phrase “long delay.”
+It is also wrong.
 
-Check a summary in this order:
+It replaced two required conditions with the vague phrase “long delay.”
 
-| Check | Question | Airline failure |
+Check summaries in this order:
+
+1. **Claim support:** Does the source support every claim?
+2. **Required-fact coverage:** Did every decision-changing condition survive?
+3. **Contradiction:** Did the summary reverse or weaken a rule?
+4. **Citation correctness:** Does each citation support its claim?
+5. **Citation coverage:** Can a reviewer trace the important claims?
+6. **Concision:** Did the summary remove repetition without removing meaning?
+7. **Uncertainty:** Did it say when the evidence was incomplete?
+
+Reference-overlap metrics can be useful supporting signals.
+
+Similar wording does not prove factuality.
+
+Different wording does not prove an error.
+
+## 3. End-to-end and production evaluation
+
+Component scores tell you where the system is weak.
+
+End-to-end evaluation tells you whether the complete product helped the user.
+
+### Follow one airline request
+
+This airline rule is fictional and exists only for the lesson.
+
+The passenger asks:
+
+> My flight is delayed by six hours. Am I eligible for a free hotel?
+
+The policy says a hotel is provided only when both conditions are true:
+
+1. The delay requires an overnight stay.
+2. The airline caused the delay.
+
+The user has not supplied either fact.
+
+The safe answer explains the two conditions and asks for the missing information.
+
+| Run | Retrieval result | Generated answer | End-to-end result |
+| --- | --- | --- | --- |
+| Retrieval failure | Correct policy absent | Any answer lacks the required evidence | Fix retrieval first |
+| Generation failure | Correct policy present | “Yes. Six hours qualifies.” | Block: relevant but unfaithful and incorrect |
+| Passing run | Correct policy present | Explains both conditions and asks for missing facts | Allow: useful and appropriately uncertain |
+
+<Code code={flightPolicyEvalCode} lang="python" title="src/examples/evals/flight_policy_eval.py" />
+
+### Production scorecard
+
+Offline evaluation is evidence for readiness.
+
+It is not proof of readiness by itself.
+
+| Area | What to measure | Example failure |
 | --- | --- | --- |
-| Claim support | Does the source support every claim? | “Long delay” is not the stated rule |
-| Required-fact coverage | Did it preserve every required condition? | Overnight stay and airline cause disappeared |
-| Contradiction | Did it reverse or change a source statement? | Weather delays may now look eligible |
-| Citation precision | Does each citation support its attached claim? | A real policy link may not support “long delay” |
-| Citation coverage | Are the important claims traceable? | The eligibility conclusion has no source marker |
-| Concision | Did it remove repetition without removing meaning? | Shorter text lost the decision rule |
-| Uncertainty | Did it state when evidence was incomplete? | It gave a conclusion without the missing facts |
+| Task outcome | Task success and human review | Answer is technically true but not useful |
+| Latency | p50, p95, and timeout rate by stage | Reranking pushes p95 beyond the SLA |
+| Cost | Cost per query and cost per successful answer | A more accurate version costs too much to operate |
+| Reliability | Error, fallback, empty-retrieval, and retry rates | Reranker timeouts silently return weak ordering |
+| Freshness | Source age, indexing lag, and stale-answer rate | Deleted policy remains searchable |
+| Security | ACL leakage tests and unauthorized passage exposure | Retrieval returns another tenant's chunk |
+| Citations | Supported-claim rate and broken-source rate | Citation exists but does not support the sentence |
+| Drift | Score distributions and failure clusters over time | A new query pattern lowers recall |
 
-Reference-overlap metrics can be supporting signals. Similar wording does not prove factuality, and different wording does not prove an error.
+Cost per **successful** answer is usually more meaningful than cost per request.
 
-For high-impact summaries, label required facts and prohibited conclusions. Then test whether every required fact survived and every generated claim has source support. AWS's current RAG evaluation guidance similarly separates correctness, completeness, faithfulness, citation quality, and other answer qualities.[^aws-eval]
+A cheap wrong answer is not a saving.
 
-> **Mental model:** A good summary is shorter than the source, but it keeps the facts that would change the decision.
+## 4. Debug low retrieval quality in order
 
-## Compare versions with the same test
+When a user reports a bad answer, do not begin by changing the prompt.
 
-Suppose the baseline uses a chunk size of 500, `k = 5`, embedding model A, and no reranker. A candidate changes chunking, adds a reranker, or switches to embedding model B. Those settings describe the experiment; they do not prove improvement.
+Trace the evidence path.
 
-Freeze the questions, corpus and permission snapshot, `k`, query transforms, generation settings, reference answers, evaluator version, and release thresholds. If chunking changes, freeze gold source spans or answer-bearing units and map each candidate's chunks back to them; chunk IDs and boundaries are not stable labels.
+### Step 1: Confirm the failing stage
 
-Then run both versions and record the measured results:
+Inspect the final context that reached the model.
+
+- If the needed evidence is absent, investigate ingestion, retrieval, reranking, or context packing.
+- If the evidence is present but the answer misuses it, investigate generation.
+
+Start with this question:
+
+> Did we retrieve bad evidence, or did we use good evidence badly?
+
+### Step 2: Confirm that the source exists
+
+Ask whether the corpus contains the answer at all.
+
+Check the correct document version, effective date, tenant, language, and permission scope.
+
+Retrieval cannot return a policy that was never ingested or is excluded by access rules.
+
+### Step 3: Inspect parsing, chunks, and metadata
+
+Open the stored chunk, not only the original document.
+
+Check:
+
+- whether PDF text and tables were parsed correctly;
+- whether a chunk boundary split the answer;
+- whether headers and parent sections were preserved;
+- whether metadata and ACL fields are correct;
+- whether updates and deletions reached every index.
+
+No chunking strategy is always best.
+
+Fixed-size, recursive, semantic, and structure-aware chunking must earn their place on the same labeled evaluation set.
+
+### Step 4: Inspect the original and rewritten query
+
+Log both versions.
+
+A rewrite may improve a vague question.
+
+It may also remove an exact error code, product ID, date, negation, or user constraint.
+
+Keep the original query available for comparison and hybrid retrieval.
+
+### Step 5: Verify the embedding contract
+
+Query and document vectors must come from the same compatible embedding space.
+
+Check the model name, version, dimensions, preprocessing, and distance metric.
+
+Inspect score distributions as a diagnostic signal.
+
+Do not treat close cosine scores as proof of “embedding collapse.”
+
+Similar scores can also come from a hard query, a homogeneous corpus, normalization, or the index configuration.
+
+### Step 6: Check filters and index behavior
+
+Run the same query with and without safe diagnostic filters.
+
+Check whether tenant, date, product, or permission filters removed the gold passage.
+
+For an approximate vector index, compare its top results with exact search on a labeled sample.
+
+This measures ANN recall against exact neighbors.
+
+It is different from human-labeled RAG Recall@k.
+
+### Step 7: Label the top results
+
+Print the top 10 or 20 candidates with IDs, scores, text, and metadata.
+
+Label them as strongly relevant, partly relevant, or irrelevant.
+
+Then compute the metric that matches the need:
+
+- Precision@k for noise;
+- Recall@k for missing evidence;
+- MRR for the first useful result;
+- NDCG for graded ranking;
+- duplicate rate and unique fact coverage for context variety.
+
+### Step 8: Compare retrieval, fusion, and reranking
+
+Save the list at every boundary:
+
+1. keyword candidates;
+2. vector candidates;
+3. fused candidates;
+4. reranked candidates;
+5. final packed context.
+
+Compare before and after each step.
+
+A reranker can improve ordering.
+
+It can also remove a useful result, time out, or fall back to the raw ranking.
+
+### Step 9: Inspect context packing
+
+The retriever may find the right passage and still lose it later.
+
+Check token limits, deduplication, parent-child expansion, ordering, and truncation.
+
+The final context sent to the model is the real generation input.
+
+### Step 10: Trace and monitor the complete path
+
+For each failing query, preserve:
+
+```text
+1. User question
+2. Original and rewritten query
+3. Corpus, embedding, and index version
+4. Retrieved candidates
+5. Fused and reranked results
+6. Final packed context
+7. Generated answer and citations
+8. Metric labels and evaluator version
+9. Latency, cost, errors, and fallback decisions
+```
+
+Monitor empty retrievals, labeled Hit@k and Recall@k samples, latency, index freshness, fallback rates, authorization failures, and recurring query clusters.
+
+Do not call an unlabeled live score “precision” unless its relevance labels and denominator are clear.
+
+### Debugging order to remember
+
+```text
+Source → Parse → Chunk → Query → Filter → Retrieve → Rerank → Pack → Answer
+```
+
+There is no honest universal claim that most failures come from one stage.
+
+Measure your system and fix the stage your trace identifies.
+
+## 5. Build a trustworthy evaluation
+
+### Build the dataset before the dashboard
+
+A useful first dataset can be small.
+
+1. Collect real questions from users and domain experts.
+2. Include ordinary, multi-passage, exact-identifier, unanswerable, stale-data, and adversarial cases.
+3. Label acceptable evidence, required facts, prohibited conclusions, and answer behavior.
+4. Include different tenants, languages, permission levels, and source types when the product supports them.
+5. Preserve dataset versions.
+6. Inspect individual failures before averaging scores.
+
+Use human-reviewed examples to calibrate automated judges.
+
+### Compare versions with the same test
+
+Freeze the questions, corpus and permission snapshot, `k`, query transforms, generation settings, reference facts, evaluator version, and thresholds.
+
+If chunking changes, freeze gold source spans or answer-bearing facts.
+
+Map each candidate's chunks back to those stable units.
+
+Chunk IDs are not stable labels when chunk boundaries change.
 
 | Check | Baseline | Candidate | Decision rule |
 | --- | --- | --- | --- |
 | Recall@5 | measured value | measured value | Candidate must meet the retrieval gate |
 | Precision@5 | measured value | measured value | Candidate must not fill context with noise |
-| Faithful answer rate | measured value | measured value | Candidate must meet the grounded-answer gate |
-| Correct answer rate | measured value | measured value | Review every high-impact regression |
-| p95 latency and cost/query | measured value | measured value | Candidate must stay within operating limits |
+| Faithful-answer rate | measured value | measured value | Candidate must meet the grounding gate |
+| Correct-answer rate | measured value | measured value | Review every high-impact regression |
+| p95 latency | measured value | measured value | Candidate must stay inside the SLA |
+| Cost per successful answer | measured value | measured value | Candidate must stay inside the budget |
 
-Do not copy a claim such as “recall rose from 70% to 90%” into a design document unless that exact result came from this system's versioned eval set. Report absolute values, percentage-point deltas, dataset size, paired regressions, and uncertainty. Keep a held-out release set so repeated tuning does not overfit the evaluation.
+If chunking, embeddings, and reranking all change together, the test supports a claim about the **whole candidate bundle**.
 
-If chunking, embeddings, and reranking all change together, the experiment supports a claim about the **candidate bundle**. Change one factor at a time or run ablations before attributing the gain to a specific component. LangSmith's official RAG tutorial follows the same core workflow: create a dataset, run the application, and score the results.[^rag-eval]
+Use one-factor changes or ablations before crediting one component.
 
-[MRR](../glossary/mrr/) ignores relevant items after the first, so it does not replace Recall@k for multi-passage answers. **ANN recall@k** is a different denominator again: it measures overlap with exact vector neighbors, not human relevance. High ANN recall can faithfully reproduce a poor embedding ranking.
+Do not publish invented improvements such as “recall rose from 70% to 90%.”
 
-## Evaluate each stage
+Report measured values, dataset size, percentage-point change, important regressions, and uncertainty.
 
-| Stage | What to measure | Example failure |
-| --- | --- | --- |
-| Ingestion | parse coverage, freshness, metadata | Tables disappear during extraction |
-| Retrieval | recall@k, precision@k, rank | Correct policy never reaches the context |
-| Answer | groundedness, correctness, completeness | Answer contradicts retrieved evidence |
-| Citation | source validity and claim support | Link exists but does not support the sentence |
-| Behavior | abstention, tool choice, policy compliance | Model guesses when evidence is absent |
-| Operations | latency percentiles, cost, error rate | Quality passes but p95 latency misses the SLA |
+### Turn metrics into release gates
 
-## Build the dataset before the dashboard
+Set the decision rule before running the test.
 
-A useful first dataset can be small:
-
-1. collect real questions from users and support staff;
-2. include ordinary, multi-passage, exact-identifier, unanswerable, and adversarial cases;
-3. label acceptable evidence and answer behavior;
-4. preserve dataset versions;
-5. inspect failures individually before averaging scores.
-
-Use human-reviewed examples to calibrate automated judges. An LLM grader is another model with possible errors, not an objective measuring instrument.
-
-## Turn a metric into a gate
-
-Define the decision before running the evaluation. These thresholds are illustrative; choose them from the workflow's risk and baseline:
+These values are examples, not universal targets:
 
 ```text
 Release only if:
-  # Retrieval quality
-  retrieval recall@5 >= 0.90
-  retrieval precision@5 >= 0.70
+  # Retrieval
+  retrieval recall@5 >= team threshold
+  retrieval precision@5 >= team threshold
 
   # Answer behavior
-  grounded answer rate >= 0.95
-  reference-answer correctness >= 0.90
-  correct abstention rate >= 0.90
-  supported citation rate >= 0.95
+  faithful answer rate >= team threshold
+  reference correctness >= team threshold
+  correct abstention rate >= team threshold
+  supported citation rate >= team threshold
 
   # Safety
   unauthorized passage exposure == 0
   critical prompt-injection successes == 0
 
   # Operations
-  p95 latency <= 4 seconds
-  p95 cost per answer <= agreed budget
+  p95 latency <= agreed SLA
+  cost per successful answer <= agreed budget
   request error rate <= agreed SLO
 ```
 
-An average cannot excuse a critical data-isolation failure. Safety gates are hard stops; quality and operational thresholds express the product trade-offs. A writing assistant and an invoice approval agent should not share the same gate.
+An average quality score cannot excuse a tenant-data leak.
 
-## FDE questions
+Safety failures are hard stops.
+
+## Interview answer
+
+> I evaluate RAG in four parts. First, retrieval: did the system find the required evidence, and did it rank that evidence well? I use metrics such as Precision@k, Recall@k, Hit@k, MRR, and NDCG on a labeled dataset. Second, generation: did the model answer the question faithfully, correctly, completely, and with supporting citations? Third, end-to-end behavior: did the user get the right outcome, including a safe abstention when evidence was missing? Finally, production: I monitor p95 latency, cost per successful answer, failures, freshness, and authorization. I keep these scores separate so a bad answer tells me whether to fix ingestion, retrieval, context packing, generation, or operations.
+
+The shortest version is:
+
+```text
+Retrieval:  Did we get the right evidence?
+Generation: Did we use the evidence correctly?
+End-to-end: Did the user get the right result?
+Production: Can we keep doing it safely and reliably?
+```
+
+## FDE review questions
 
 - What user decision could a wrong answer change?
+- Which facts are required before the system may answer?
 - Which failures are severe even if the average score is high?
-- Does the test set represent each customer, language, permission level, and source type?
-- Can a reviewer trace a failing score back to input, retrieval, model output, and code version?
+- Can a reviewer trace a failing score to a source, query, chunk, model output, and code version?
+- Does every metric name include its denominator, labels, dataset, and evaluator?
 
-[^ranked-metrics]: Google for Developers defines [Precision@k and Recall@k](https://developers.google.com/machine-learning/glossary/metrics) for ranked lists. Microsoft also documents the retrieval-specific definitions in its [RAG information-retrieval guidance](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-information-retrieval).
-[^rag-eval]: LangChain, [“Evaluate a RAG application”](https://docs.langchain.com/langsmith/evaluate-rag-tutorial), separates correctness, answer relevance, groundedness, and retrieval relevance.
-[^ragas]: Es et al., [“RAGAS: Automated Evaluation of Retrieval Augmented Generation”](https://aclanthology.org/2024.eacl-demo.16/), EACL 2024.
-[^aws-eval]: Amazon Web Services, [“Knowledge-base evaluation metrics”](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base-evaluation-metrics.html), separates retrieval metrics from generated-answer qualities such as correctness, completeness, faithfulness, and citation measures.
+[^ranked-metrics]: Google for Developers defines [Precision@k, Average Precision@k, and MAP@k](https://developers.google.com/machine-learning/glossary/metrics) for ranked lists. Microsoft documents retrieval-specific Recall@k and MRR in its [RAG information-retrieval guidance](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-information-retrieval).
+[^map-ndcg]: Microsoft Foundry describes [MAP and NDCG](https://learn.microsoft.com/en-us/azure/foundry/concepts/model-benchmarks) as ranking metrics and explains that NDCG compares returned rankings with an ideal relevance order.
+[^ragas-context]: Ragas documents its definitions of [context precision](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/) and [context recall](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_recall/). Check the exact variant and inputs used by your installed version.
+[^rag-eval]: LangChain's [RAG evaluation tutorial](https://docs.langchain.com/langsmith/evaluate-rag-tutorial) separates answer correctness, answer relevance, groundedness, and retrieval relevance.
+[^evaluation-concepts]: LangChain's [evaluation concepts](https://docs.langchain.com/langsmith/evaluation-concepts) distinguish reference-based and reference-free evaluators, along with human, code, and model-based evaluation.
