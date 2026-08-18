@@ -3,9 +3,9 @@ title: RAG, from question to trustworthy answer
 description: Follow one airline question through document preparation, retrieval, generation, citations, and production evaluation.
 contentType: lesson
 level: Beginner
-minutes: 52
+minutes: 60
 topics: [RAG, ingestion, retrieval, citations, grounding, evaluation]
-lastVerified: 2026-08-16
+lastVerified: 2026-08-18
 sidebar:
   order: 1
 sources:
@@ -25,6 +25,22 @@ sources:
     url: https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-information-retrieval
     publisher: Microsoft
     type: official-doc
+  - title: Define index projections for parent-child indexing
+    url: https://learn.microsoft.com/en-us/azure/search/search-how-to-define-index-projections
+    publisher: Microsoft
+    type: official-doc
+  - title: Delete documents from an Azure AI Search index
+    url: https://learn.microsoft.com/en-us/azure/search/search-how-to-delete-documents
+    publisher: Microsoft
+    type: official-doc
+  - title: Turning data into a knowledge base
+    url: https://docs.aws.amazon.com/bedrock/latest/userguide/kb-how-data.html
+    publisher: Amazon Web Services
+    type: official-doc
+  - title: Observability for managed knowledge bases
+    url: https://docs.aws.amazon.com/bedrock/latest/userguide/kb-managed-observability.html
+    publisher: Amazon Web Services
+    type: official-doc
   - title: How full-text search works
     url: https://www.elastic.co/docs/solutions/search/full-text/how-full-text-works
     publisher: Elastic
@@ -40,14 +56,16 @@ sources:
 ---
 
 import { Code } from '@astrojs/starlight/components';
+import ChunkingBeforeAfter from '../../../components/ChunkingBeforeAfter.astro';
 import LessonMeta from '../../../components/LessonMeta.astro';
 import Takeaway from '../../../components/Takeaway.astro';
 import minimalCode from '../../../examples/rag/minimal.py?raw';
 import ingestionCode from '../../../examples/rag/ingestion_pipeline.py?raw';
+import parentChildCode from '../../../examples/rag/parent_child_markdown.py?raw';
 import retrievalCode from '../../../examples/rag/production_retrieval.py?raw';
 import flightEvalCode from '../../../examples/evals/flight_policy_eval.py?raw';
 
-<LessonMeta level="Beginner" minutes={52} verified="16 Aug 2026" kind="Book chapter" />
+<LessonMeta level="Beginner" minutes={60} verified="18 Aug 2026" kind="Book chapter" />
 
 <Takeaway>RAG finds evidence before the model answers. Most of the engineering work is making sure that evidence is current, complete, relevant, and safe to use.</Takeaway>
 
@@ -136,25 +154,42 @@ RAG does something similar with documents.
 
 This preparation stage is called **ingestion**.
 
+Ingestion runs when a source is added, changed, or deleted.
+
+It does not parse every document again for each user question.
+
 ```mermaid
 flowchart TD
-    A["Collect the source"] --> B["Record version and permissions"]
-    B --> C["Parse text, headings, tables, and pages"]
-    C --> D["Clean and remove duplicates"]
-    D --> E["Create searchable chunks"]
-    E --> F["Attach metadata"]
-    F --> G["Create embeddings"]
-    G --> H["Build keyword and vector indexes"]
-    H --> I["Validate, update, and delete"]
+    A["Collect and validate<br/>the source"] --> B["Fingerprint the revision<br/>and record permissions"]
+    B --> C["Parse into one<br/>structured representation"]
+    C --> D["Clean without<br/>losing meaning"]
+    D --> E["Create parent sections<br/>and child chunks"]
+    E --> F["Attach provenance,<br/>version, and ACL metadata"]
+    F --> G["Create keyword and<br/>dense representations"]
+    G --> H["Write a staged<br/>search revision"]
+    H --> I["Validate the complete<br/>revision"]
+    I --> J["Publish it, then remove<br/>obsolete records"]
 ```
 
 Microsoft's RAG design guidance separates preparation, retrieval, generation, evaluation, identity, and operations.[^rag-design] That separation matters because a prompt change cannot repair a document that was parsed incorrectly.
 
-### Step 1: collect and version the source
+### Step 1: collect, validate, and identify the source
 
 The system records where the document came from.
 
 It also records which version is active.
+
+Before parsing, validate the ingestion request:
+
+- Is the format supported?
+- Is the file readable and non-empty?
+- Is it inside the service's configured size and page limits?
+- Has an untrusted upload passed the required malware or content scan?
+- Which tenant, owner, product, language, and permission scope does it belong to?
+
+The exact limits belong in configuration and operations documentation.
+
+They are not universal RAG constants.
 
 For our policy, the first record may look like this:
 
@@ -172,6 +207,20 @@ Without version information, search may return an older policy.
 
 Updates and deletions also need an explicit process. Re-indexing version 3 is incomplete if version 2 remains searchable without a reason.
 
+Create a fingerprint from the source bytes or normalized content.
+
+For example:
+
+```text
+stable document ID + SHA-256 content checksum = source revision
+```
+
+The stable ID answers, “Which document is this?”
+
+The checksum answers, “Did its content change?”
+
+Together they make repeated ingestion easier to detect and help identify every parent and child that belongs to one revision.
+
 ### Step 2: parse the document
 
 Parsing turns a PDF, webpage, email, or Word file into searchable content.
@@ -185,6 +234,23 @@ It should preserve:
 - list introductions and list items;
 - code signatures and explanations;
 - page numbers and source positions.
+
+Convert each source format into one common intermediate representation.
+
+That representation might be Markdown with metadata or a sequence of typed blocks:
+
+```json
+{
+  "type": "paragraph",
+  "heading_path": ["Passenger care", "Hotel accommodation"],
+  "page": 17,
+  "text": "Hotel accommodation is provided only when..."
+}
+```
+
+The chunker should not need separate logic for PDF, Word, HTML, and Markdown.
+
+Persisting this parsed representation can also help a team inspect parser failures or test a new chunker without parsing every source again.[^chunking-phase]
 
 Consider this table:
 
@@ -253,6 +319,109 @@ A structure-aware chunk can keep the heading and both conditions together.
 The [chunking chapter](./chunking/) compares all five strategies with code and an experiment plan.
 
 <Takeaway label="Mental model">Chunking is not about making equal pieces. It is about creating searchable units that preserve the meaning needed to answer.</Takeaway>
+
+#### See the Markdown before and after chunking
+
+Read the next picture from left to right.
+
+The left side is the Markdown produced by the parser.
+
+The right side shows the records produced by this example's chunker.
+
+<ChunkingBeforeAfter />
+
+Follow the transformation in four steps:
+
+1. **Find the section.** The chunker reads the `#` document title and the `##` section heading.
+2. **Group complete blocks.** It keeps the policy paragraph together. It also keeps the table header with its rows.
+3. **Create the parent.** The parent stores the complete “Hotel accommodation” section.
+4. **Create the children.** Each smaller child keeps the heading path and the same `parent_id`.
+
+The retriever searches the children because they are focused.
+
+If a child matches, the context builder can load its parent because the parent preserves the wider explanation.
+
+##### Which code performs each step?
+
+| Code | Job in the picture |
+| --- | --- |
+| `split_markdown_sections()` | Reads the `#` and `##` headings and creates the section on the left |
+| `group_markdown_blocks()` | Separates the paragraph from the table without splitting the table rows |
+| `block_kind()` | Labels the two children as `paragraph` and `table` |
+| `create_parent_child_records()` | Creates one parent, creates the children, and gives every child the same `parent_id` |
+
+<details>
+<summary>Open the complete runnable Python example</summary>
+
+<Code code={parentChildCode} lang="python" title="src/examples/rag/parent_child_markdown.py" />
+
+</details>
+
+This is a teaching example, not a complete Markdown parser.
+
+A production parser also needs nested headings, lists, code fences, citations, source positions, and oversized-table handling.
+
+#### Search children; answer with a parent when needed
+
+A long section may contain one complete explanation but be too broad for precise search.
+
+Parent-child chunking gives that section two shapes:
+
+```text
+Parent: Hotel accommodation
+    ├── Child 1: eligibility conditions
+    ├── Child 2: booking procedure
+    └── Child 3: exclusions
+```
+
+The smaller children are search targets.
+
+Each child carries a stable `parent_id`.
+
+When a child matches, the context builder can load the parent section or a bounded neighboring part.
+
+Remember the pattern:
+
+> **Search with children. Restore context with parents.**
+
+The parent does not have to live in a separate database. A system may repeat selected parent fields on each child, store parent and child records together, or keep larger parents in a separate store. Microsoft documents both single-index and separate-index parent-child layouts.[^index-projections]
+
+Whichever layout you choose, every searchable child must carry the metadata and ACL fields needed to filter it safely.
+
+#### Keep structured blocks understandable
+
+The splitter should treat meaningful blocks differently from ordinary prose:
+
+| Source block | Small block | Oversized block |
+| --- | --- | --- |
+| Paragraph | Keep it intact | Split at sentence boundaries when possible |
+| Procedure or list | Keep the introduction with its items | Split into ordered groups and preserve step numbers |
+| Table | Keep headers with rows | Split between rows and repeat the column headers |
+| Code | Keep the complete block | Prefer functions, classes, blank lines, or complete lines; preserve the code fence and language |
+
+A heading path should travel with every child:
+
+```text
+Product guide > Security > Authentication > Key rotation
+```
+
+That path gives a small sentence the context it lost when it left the full document.
+
+#### Treat every size and threshold as an experiment
+
+Do not copy a token count or semantic-similarity threshold from another system.
+
+| Control | What it changes | How to choose it |
+| --- | --- | --- |
+| Parent size | Amount of context restored after a match | Largest complete answer unit that fits the context budget |
+| Child size | Retrieval precision and embedding input | Labeled Recall@k, Precision@k, and answer quality |
+| Overlap | Boundary coverage and duplicate results | Add only when boundary misses improve more than duplication grows |
+| Semantic split threshold | Sensitivity to topic changes | Compare with fixed, recursive, and structure-aware baselines |
+| Neighbor expansion | Wider context and token cost | Enable only for questions that need adjacent parts |
+
+Zero overlap can work when boundaries and parent expansion preserve the needed context.
+
+It is a design choice, not a general rule.
 
 ### Step 5: attach metadata and permissions
 
@@ -331,6 +500,19 @@ Similarity does not prove relevance. Every query has a nearest vector, even when
 
 The query and document vectors must come from a compatible embedding space. Matching dimensions alone does not make two different embedding models compatible.
 
+Semantic chunking may call an embedding model once to find topic boundaries.
+
+The final children are embedded again for search after their boundaries are fixed.
+
+Those are two different jobs:
+
+```text
+temporary sentence-window embeddings → choose boundaries
+final child embeddings             → serve retrieval
+```
+
+Fixed-size, recursive, and structure-aware chunking may not need the first embedding phase.
+
 ### Step 7: build the indexes
 
 The keyword index stores terms and the chunks that contain them.
@@ -348,6 +530,116 @@ This avoids comparing a query with every stored vector. The shortcut can also mi
 Use exact search as the quality reference. Then measure the HNSW recall and latency on the real corpus.
 
 The [vector-search foundations chapter](./vector-search-foundations/) explains exact search, cosine similarity, HNSW, and its main controls.
+
+### Step 8: validate and publish one complete revision
+
+Do not make a half-built revision searchable.
+
+Write the new parents, children, keyword records, vectors, and metadata as a staged revision first.
+
+Then validate it:
+
+1. Every expected source block was parsed or has a recorded failure.
+2. Every child points to an existing parent or source record.
+3. Every searchable child has text, required metadata, and ACL fields.
+4. The embedding count and dimensions match the index contract.
+5. Expected additions, updates, and deletions reconcile with the source revision.
+6. A small smoke test retrieves the new revision and produces traceable citations.
+
+Publish only after those checks pass.
+
+The publish mechanism depends on the storage system. It may switch an index alias, update an active-revision pointer, or make a `ready` manifest visible.
+
+If parents and children live in different stores, a single database transaction may not cover them both. In that case, write the manifest last and require every query to filter for the active ready revision.
+
+Keep the previous complete revision searchable until the cutover succeeds.
+
+Remove the obsolete revision only after the new one is visible and verified.
+
+```text
+old revision: ready and searchable
+new revision: staging and hidden
+        ↓ validate
+old revision: previous
+new revision: ready and searchable
+        ↓ verify
+remove obsolete records
+```
+
+### Step 9: synchronize updates and deletions
+
+Ingestion is a lifecycle, not a one-time upload.
+
+A later run must identify four cases:
+
+| Source state | Ingestion action |
+| --- | --- |
+| New stable ID | Add a new document revision |
+| Same ID and same fingerprint | Skip unchanged content |
+| Same ID and new fingerprint | Build and publish a replacement revision |
+| Deleted or revoked source | Remove or tombstone every searchable child and parent |
+
+Deletion behavior differs across connectors and search products.
+
+Some systems detect source deletions. Others require an explicit sync, soft-delete policy, or manual deletion by document key.[^deletion-lifecycle]
+
+Do not delete the source first if that makes its indexed children impossible to identify.
+
+Record a tombstone or deletion event, remove every derived record, invalidate related caches, and verify that retrieval no longer returns the source.
+
+### Step 10: make ingestion an observable, retryable job
+
+Large ingestion work should expose its progress.
+
+A job record can contain:
+
+```json
+{
+  "job_id": "ingest-2026-08-18-0042",
+  "doc_id": "IRROPS-204",
+  "revision": "sha256:...",
+  "stage": "index",
+  "status": "in_progress",
+  "attempt": 2,
+  "parents_created": 8,
+  "children_created": 31,
+  "error": null
+}
+```
+
+Track at least these stages:
+
+1. source discovery or upload;
+2. validation and scanning;
+3. parsing and normalization;
+4. parent and child creation;
+5. embedding and keyword preparation;
+6. index writes;
+7. validation and publication;
+8. obsolete-record cleanup.
+
+Stable document IDs, revision fingerprints, and deterministic child IDs make retries safer.
+
+A retry should resume or replace the same staged revision. It should not create a second visible copy.
+
+Record per-document warnings and failures instead of reporting only one job-level success flag. AWS's managed knowledge-base logs, for example, separate crawl, sync, and index status and include chunk statistics.[^ingestion-observability]
+
+### Keep ingestion and query work separate
+
+| Work | Ingestion time | Question time |
+| --- | --- | --- |
+| Parse the source document | Yes | No |
+| Build parent and child chunks | Yes | No |
+| Embed document children | Yes | No |
+| Build keyword and vector indexes | Yes | No |
+| Embed the user's question | No | Yes |
+| Run BM25 and vector search | No | Yes |
+| Load a winning parent | No | When useful |
+| Generate and cite the answer | No | Yes |
+
+The original PDF should not be reparsed for every question.
+
+Only new or changed source revisions need ingestion work.[^ingestion-lifecycle]
 
 ### A readable ingestion implementation
 
@@ -615,10 +907,14 @@ Ask:
 
 - Did parsing preserve the text and tables?
 - Does one searchable unit contain the complete answer?
+- Do all children resolve to a valid parent and carry required ACL fields?
+- Can an unchanged fingerprint be skipped without producing duplicate records?
+- Does a failed run leave its staged revision hidden?
 - Are current versions present and old versions removed?
 - Are duplicate chunks occupying result slots?
 - Are tenant and permission fields complete?
 - Can a deletion be verified in search results?
+- Do job logs identify the failed document, stage, revision, and attempt?
 
 ### Evaluate retrieval
 
@@ -727,8 +1023,11 @@ Choose RAG when runtime evidence retrieval solves a measured problem. Do not add
 ### Prepare
 
 - [ ] Sources have stable IDs, owners, versions, and effective dates.
+- [ ] Source fingerprints make unchanged revisions and safe retries identifiable.
 - [ ] Parsing preserves headings, lists, tables, and page positions.
+- [ ] Parent-child links and required ACL metadata exist on every searchable child.
 - [ ] Chunking was tested on labeled questions.
+- [ ] A revision remains hidden until parents, children, indexes, and metadata validate together.
 - [ ] Updates and deletions are verified.
 - [ ] Tenant and ACL metadata are present on searchable records.
 
@@ -757,7 +1056,7 @@ Choose RAG when runtime evidence retrieval solves a measured problem. Do not add
 
 ## A 60-second interview answer
 
-> A production RAG system starts by collecting and versioning source documents. It preserves their structure and permissions, divides them into meaningful chunks, attaches metadata, creates embeddings, and builds keyword and vector indexes. At request time, it authenticates the user, applies authorization filters, runs BM25 and vector retrieval, combines the rankings, reranks a shortlist, removes repetition, and builds a small evidence package. The model answers from that evidence, cites its sources, and asks for missing facts or abstains when the evidence is insufficient. I evaluate ingestion, retrieval, and generation separately. I then measure end-to-end task success, p95 latency, cost, freshness, and security in production.
+> A production RAG system starts by validating and fingerprinting source revisions. It preserves their structure and permissions, creates searchable children linked to complete parent sections, attaches metadata, and builds keyword and vector indexes. It validates the whole staged revision before publishing it and removes obsolete records only after a successful cutover. At request time, it authenticates the user, applies authorization filters, runs BM25 and vector retrieval, combines the rankings, reranks a shortlist, removes repetition, and builds a small evidence package. The model answers from that evidence, cites its sources, and asks for missing facts or abstains when the evidence is insufficient. I evaluate ingestion, retrieval, and generation separately. I then measure end-to-end task success, p95 latency, cost, freshness, and security in production.
 
 ## Continue reading
 
@@ -770,4 +1069,9 @@ Choose RAG when runtime evidence retrieval solves a measured problem. Do not add
 
 [^rag-paper]: Lewis et al., [“Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks”](https://arxiv.org/abs/2005.11401), introduced the RAG formulation with retrieved external memory.
 [^rag-design]: Microsoft, [“RAG solution design and evaluation guide”](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-solution-design-and-evaluation-guide), separates the preparation, retrieval, generation, evaluation, and operations concerns of a RAG system.
+[^chunking-phase]: Microsoft, [“Develop a RAG solution — chunking phase”](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-chunking-phase), describes preserving the loaded representation so it can be inspected and reused by different chunking processes.
+[^index-projections]: Microsoft, [“Define index projections”](https://learn.microsoft.com/en-us/azure/search/search-how-to-define-index-projections), documents one-to-many parent-child indexing and single-index and separate-index layouts.
+[^deletion-lifecycle]: Microsoft, [“Delete documents”](https://learn.microsoft.com/en-us/azure/search/search-how-to-delete-documents), explains document keys, deletion detection, and orphaned search records. AWS likewise warns that [deleted data sources can remain retrievable until the required sync or deletion policy runs](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-multimodal-add-data-source-and-ingest.html).
+[^ingestion-observability]: AWS, [“Observability for managed knowledge bases”](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-managed-observability.html), separates crawl, sync, and index events and reports document-level status and chunk statistics.
+[^ingestion-lifecycle]: AWS, [“Turning data into a knowledge base”](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-how-data.html), describes parsing, chunking, embedding, indexing, and synchronization of additions, modifications, and deletions.
 [^bm25]: Elastic, [“How full-text search works”](https://www.elastic.co/docs/solutions/search/full-text/how-full-text-works), explains the inverted index and BM25 signals, including term frequency, document frequency, and document length.

@@ -1,0 +1,338 @@
+---
+const sourceMarkdown = `# Irregular Operations Policy
+
+## Hotel accommodation
+
+A hotel is provided only when the delay requires an overnight stay
+and the disruption was caused by the airline.
+
+| Delay condition | Hotel eligibility |
+| --- | --- |
+| Overnight and airline-controlled | Eligible |
+| Weather disruption | Not automatically eligible |`;
+---
+
+<figure class="chunking-comparison" aria-labelledby="chunking-comparison-title">
+	<header class="comparison-intro">
+		<p class="kicker">Read from left to right</p>
+		<h4 id="chunking-comparison-title">One Markdown section becomes one parent and two search children</h4>
+	</header>
+
+	<div class="comparison-grid">
+		<section class="source-panel" aria-labelledby="source-markdown-title">
+			<div class="panel-heading">
+				<span>Before</span>
+				<h5 id="source-markdown-title">Source Markdown</h5>
+			</div>
+			<pre><code>{sourceMarkdown}</code></pre>
+			<p class="panel-note">The heading, rule, and table still belong to one section.</p>
+		</section>
+
+		<div class="direction" aria-hidden="true">
+			<span>chunk</span>
+			<b>→</b>
+		</div>
+
+		<section class="result-panel" aria-labelledby="chunk-records-title">
+			<div class="panel-heading">
+				<span>After</span>
+				<h5 id="chunk-records-title">Stored records</h5>
+			</div>
+
+			<article class="parent-card">
+				<div class="record-heading">
+					<span class="record-type">Parent</span>
+					<code>IRROPS-204:v3:hotel-accommodation</code>
+				</div>
+				<p class="record-purpose">Load this complete section when a matched child needs more context.</p>
+				<p class="heading-path">Irregular Operations Policy › Hotel accommodation</p>
+				<p>A hotel is provided only when the delay requires an overnight stay and the disruption was caused by the airline.</p>
+				<div class="table-preview" aria-label="Table preserved in the parent record">
+					<div class="table-row table-head"><span>Delay condition</span><span>Hotel eligibility</span></div>
+					<div class="table-row"><span>Overnight and airline-controlled</span><span>Eligible</span></div>
+					<div class="table-row"><span>Weather disruption</span><span>Not automatically eligible</span></div>
+				</div>
+			</article>
+
+			<p class="children-label">Children searched by the retriever</p>
+			<ol class="child-list">
+				<li>
+					<div class="record-heading">
+						<span class="record-type">Child 01 · paragraph</span>
+						<code>…:child-01</code>
+					</div>
+					<p class="heading-path">Irregular Operations Policy › Hotel accommodation</p>
+					<p>A hotel is provided only when the delay requires an overnight stay and the disruption was caused by the airline.</p>
+				</li>
+				<li>
+					<div class="record-heading">
+						<span class="record-type">Child 02 · table</span>
+						<code>…:child-02</code>
+					</div>
+					<p class="heading-path">Irregular Operations Policy › Hotel accommodation</p>
+					<div class="table-preview" aria-label="Table header repeated in the table child">
+						<div class="table-row table-head"><span>Delay condition</span><span>Hotel eligibility</span></div>
+						<div class="table-row"><span>Overnight and airline-controlled</span><span>Eligible</span></div>
+						<div class="table-row"><span>Weather disruption</span><span>Not automatically eligible</span></div>
+					</div>
+				</li>
+			</ol>
+		</section>
+	</div>
+
+	<figcaption>
+		The children keep the heading path and point back to the same <code>parent_id</code>. The table stays intact because its header gives meaning to every row.
+	</figcaption>
+</figure>
+
+<style>
+	.chunking-comparison {
+		border-block: 2px solid var(--rule-heavy);
+		font-family: var(--sans);
+		margin: 2.2rem 0;
+		padding: 1.15rem 0 1rem;
+	}
+
+	.comparison-intro {
+		margin-bottom: 1.15rem;
+	}
+
+	.kicker,
+	.panel-heading span,
+	.record-type,
+	.children-label {
+		color: var(--muted-ink);
+		font-size: 0.66rem;
+		font-weight: 760;
+		letter-spacing: 0.105em;
+		text-transform: uppercase;
+	}
+
+	.kicker {
+		margin: 0 0 0.28rem;
+	}
+
+	.comparison-intro h4 {
+		font-family: var(--serif);
+		font-size: clamp(1.25rem, 2vw, 1.55rem);
+		font-weight: 650;
+		letter-spacing: -0.02em;
+		line-height: 1.2;
+		margin: 0;
+		max-width: 34ch;
+	}
+
+	.comparison-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 0.88fr) 2.5rem minmax(0, 1.12fr);
+	}
+
+	.source-panel,
+	.result-panel {
+		min-width: 0;
+	}
+
+	.source-panel {
+		border: 1px solid var(--rule);
+	}
+
+	.result-panel {
+		border-block: 1px solid var(--rule);
+		border-inline-end: 1px solid var(--rule);
+	}
+
+	.panel-heading {
+		align-items: baseline;
+		background: var(--table-header);
+		border-bottom: 1px solid var(--rule);
+		display: flex;
+		gap: 0.65rem;
+		justify-content: space-between;
+		padding: 0.7rem 0.8rem;
+	}
+
+	.panel-heading h5 {
+		font-size: 0.84rem;
+		font-weight: 720;
+		letter-spacing: 0;
+		margin: 0;
+	}
+
+	.source-panel pre {
+		background: var(--paper);
+		border: 0;
+		border-radius: 0;
+		color: var(--ink);
+		font-size: 0.7rem;
+		line-height: 1.52;
+		margin: 0;
+		overflow-wrap: anywhere;
+		padding: 0.85rem;
+		white-space: pre-wrap;
+	}
+
+	.source-panel pre code {
+		font-family: var(--sl-font-mono);
+	}
+
+	.panel-note,
+	.record-purpose {
+		color: var(--muted-ink);
+		font-family: var(--serif);
+		font-size: 0.83rem;
+		line-height: 1.45;
+	}
+
+	.panel-note {
+		border-top: 1px solid var(--rule);
+		margin: 0;
+		padding: 0.75rem 0.85rem;
+	}
+
+	.direction {
+		align-items: center;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+
+	.direction span {
+		color: var(--muted-ink);
+		font-size: 0.59rem;
+		font-weight: 720;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		transform: rotate(-90deg);
+	}
+
+	.direction b {
+		font-family: var(--serif);
+		font-size: 1.35rem;
+		font-weight: 400;
+		margin-top: 0.55rem;
+	}
+
+	.parent-card,
+	.child-list li {
+		padding: 0.8rem;
+	}
+
+	.parent-card {
+		border-bottom: 1px solid var(--rule-heavy);
+	}
+
+	.record-heading {
+		align-items: baseline;
+		display: flex;
+		gap: 0.6rem;
+		justify-content: space-between;
+	}
+
+	.record-heading code {
+		color: var(--muted-ink);
+		font-family: var(--sl-font-mono);
+		font-size: 0.61rem;
+		overflow-wrap: anywhere;
+		text-align: end;
+	}
+
+	.record-purpose {
+		margin: 0.45rem 0 0.65rem;
+	}
+
+	.heading-path {
+		font-size: 0.68rem;
+		font-weight: 690;
+		line-height: 1.4;
+		margin: 0.5rem 0 0.35rem;
+	}
+
+	.parent-card > p:last-of-type,
+	.child-list li > p:last-of-type {
+		font-family: var(--serif);
+		font-size: 0.82rem;
+		line-height: 1.47;
+		margin: 0.35rem 0 0.65rem;
+	}
+
+	.children-label {
+		margin: 0;
+		padding: 0.72rem 0.8rem 0.28rem;
+	}
+
+	.child-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.child-list li + li {
+		border-top: 1px solid var(--rule);
+	}
+
+	.table-preview {
+		border-block: 1px solid var(--rule);
+		font-size: 0.65rem;
+		line-height: 1.35;
+	}
+
+	.table-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+	}
+
+	.table-row + .table-row {
+		border-top: 1px solid var(--rule);
+	}
+
+	.table-row span {
+		padding: 0.35rem 0.42rem;
+	}
+
+	.table-row span + span {
+		border-inline-start: 1px solid var(--rule);
+	}
+
+	.table-head {
+		background: var(--table-header);
+		font-weight: 720;
+	}
+
+	figcaption {
+		color: var(--muted-ink);
+		font-family: var(--serif);
+		font-size: 0.84rem;
+		line-height: 1.48;
+		margin-top: 0.85rem;
+	}
+
+	figcaption code {
+		font-family: var(--sl-font-mono);
+		font-size: 0.78em;
+	}
+
+	@media (max-width: 48rem) {
+		.comparison-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.direction {
+			flex-direction: row;
+			gap: 0.55rem;
+			padding: 0.6rem;
+		}
+
+		.direction span {
+			transform: none;
+		}
+
+		.direction b {
+			margin: 0;
+			transform: rotate(90deg);
+		}
+
+		.result-panel {
+			border-inline-start: 1px solid var(--rule);
+		}
+	}
+</style>
