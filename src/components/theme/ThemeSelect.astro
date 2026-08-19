@@ -3,9 +3,6 @@ import Select from '@astrojs/starlight/components/Select.astro';
 import {
 	DEFAULT_READING_THEME,
 	READING_THEMES,
-	READING_THEME_STORAGE_KEY,
-	parseReadingTheme,
-	type ReadingTheme,
 } from '../../theme/reading-themes';
 ---
 
@@ -43,6 +40,12 @@ import {
 </script>
 
 <script>
+	import {
+		READING_THEME_STORAGE_KEY,
+		parseReadingTheme,
+		type ReadingTheme,
+	} from '../../theme/reading-themes';
+
 	type ColorMode = 'dark' | 'light';
 
 	declare global {
