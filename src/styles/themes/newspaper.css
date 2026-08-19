@@ -1,0 +1,178 @@
+/*
+ * Newspaper reading theme.
+ * Add future themes as sibling files and register them in src/theme/reading-themes.ts.
+ */
+
+:root[data-reading-theme='newspaper'] {
+	--sl-content-width: 49rem;
+	--sl-color-accent-low: #e5dfd1;
+	--sl-color-accent: #2f2f2f;
+	--sl-color-accent-high: #171717;
+	--sl-color-white: #2f2f2f;
+	--sl-color-gray-1: #383732;
+	--sl-color-gray-2: #55534c;
+	--sl-color-gray-3: #77736a;
+	--sl-color-gray-4: #a29d91;
+	--sl-color-gray-5: #d4cec0;
+	--sl-color-gray-6: #ebe6dc;
+	--sl-color-black: #f9f7f1;
+	--paper: #f9f7f1;
+	--surface: #f0ece2;
+	--table-header: #eae4d7;
+	--table-stripe: #f5f1e8;
+	--ink: #2f2f2f;
+	--muted-ink: #666158;
+	--rule: #aaa397;
+	--rule-heavy: #2f2f2f;
+	--newspaper-display: "Source Serif 4 Variable", Georgia, "Times New Roman", serif;
+}
+
+:root[data-reading-theme='newspaper'][data-theme='dark'] {
+	--sl-color-accent-low: #302c26;
+	--sl-color-accent: #eee8da;
+	--sl-color-accent-high: #fffaf0;
+	--sl-color-white: #eee8da;
+	--sl-color-gray-1: #ddd6c8;
+	--sl-color-gray-2: #bdb5a7;
+	--sl-color-gray-3: #958d81;
+	--sl-color-gray-4: #6d665e;
+	--sl-color-gray-5: #423d37;
+	--sl-color-gray-6: #292520;
+	--sl-color-black: #171512;
+	--paper: #171512;
+	--surface: #211e1a;
+	--table-header: #29251f;
+	--table-stripe: #1c1916;
+	--ink: #eee8da;
+	--muted-ink: #b5ad9f;
+	--rule: #514b42;
+	--rule-heavy: #eee8da;
+}
+
+:root[data-reading-theme='newspaper'] body {
+	background-image: linear-gradient(to bottom, color-mix(in srgb, var(--ink) 2%, transparent) 1px, transparent 1px);
+	background-size: 100% 1.75rem;
+}
+
+:root[data-reading-theme='newspaper'] header.header {
+	border-bottom: 3px double var(--rule-heavy);
+}
+
+:root[data-reading-theme='newspaper'] .site-title {
+	font-family: var(--newspaper-display);
+	font-size: 1.3rem;
+	font-variation-settings: "wght" 850;
+	letter-spacing: 0.055em;
+	text-transform: uppercase;
+}
+
+:root[data-reading-theme='newspaper'] .sidebar-pane {
+	border-inline-end-style: double;
+	border-inline-end-width: 3px;
+}
+
+:root[data-reading-theme='newspaper'] .sl-markdown-content {
+	font-size: clamp(1.12rem, 0.36vw + 1.04rem, 1.22rem);
+	letter-spacing: -0.002em;
+	line-height: 1.69;
+}
+
+:root[data-reading-theme='newspaper'] h1#_top,
+:root[data-reading-theme='newspaper'] .sl-markdown-content :where(h1, h2, h3),
+:root[data-reading-theme='newspaper'] .term-name {
+	font-family: var(--newspaper-display);
+}
+
+:root[data-reading-theme='newspaper'] h1#_top,
+:root[data-reading-theme='newspaper'] .sl-markdown-content h1 {
+	font-size: clamp(2.6rem, 5.2vw, 4rem);
+	font-variation-settings: "wght" 880;
+	letter-spacing: -0.042em;
+	line-height: 0.98;
+	max-width: 20ch;
+}
+
+:root[data-reading-theme='newspaper'] .sl-markdown-content h2 {
+	font-variation-settings: "wght" 800;
+	letter-spacing: -0.026em;
+}
+
+:root[data-reading-theme='newspaper'] .sl-markdown-content .sl-heading-wrapper.level-h2 {
+	border-top: 4px double var(--rule-heavy);
+	padding-top: 1.05rem;
+}
+
+:root[data-reading-theme='newspaper'] .sl-markdown-content h3 {
+	font-style: italic;
+	font-variation-settings: "wght" 680;
+}
+
+:root[data-reading-theme='newspaper'] .sl-markdown-content blockquote {
+	border-block: 3px double var(--rule-heavy);
+	font-family: var(--newspaper-display);
+	font-size: 1.2em;
+	font-style: italic;
+	line-height: 1.5;
+	padding-block: 1.2rem;
+}
+
+:root[data-reading-theme='newspaper'] .sl-markdown-content table {
+	border-block: 3px double var(--rule-heavy);
+	font-family: var(--serif);
+}
+
+:root[data-reading-theme='newspaper'] .sl-markdown-content table thead {
+	border-bottom: 1px solid var(--rule-heavy);
+}
+
+:root[data-reading-theme='newspaper'] .sl-markdown-content th {
+	background: transparent;
+	font-family: var(--sans);
+	font-size: 0.76rem;
+	letter-spacing: 0.065em;
+	text-transform: uppercase;
+}
+
+:root[data-reading-theme='newspaper'] .lesson-meta {
+	border-block: 3px double var(--rule-heavy);
+	padding-block: 0.72rem !important;
+	text-transform: uppercase;
+}
+
+:root[data-reading-theme='newspaper'] .takeaway,
+:root[data-reading-theme='newspaper'] .evaluation-summary,
+:root[data-reading-theme='newspaper'] .concept-flow {
+	border-block-style: double;
+	border-block-width: 3px;
+}
+
+:root[data-reading-theme='newspaper'] .takeaway-label,
+:root[data-reading-theme='newspaper'] .index-meta,
+:root[data-reading-theme='newspaper'] .term-category,
+:root[data-reading-theme='newspaper'] .term-number {
+	letter-spacing: 0.13em;
+}
+
+:root[data-reading-theme='newspaper'] pre.mermaid,
+:root[data-reading-theme='newspaper'] .expressive-code figure {
+	box-shadow: none;
+}
+
+@media (max-width: 36rem) {
+	:root[data-reading-theme='newspaper'] h1#_top,
+	:root[data-reading-theme='newspaper'] .sl-markdown-content h1 {
+		font-size: clamp(2.15rem, 10vw, 2.75rem);
+		line-height: 1.04;
+	}
+}
+
+@media print {
+	:root[data-reading-theme='newspaper'],
+	:root[data-reading-theme='newspaper'][data-theme='dark'] {
+		--paper: #ffffff;
+		--ink: #000000;
+		--muted-ink: #444444;
+		--rule: #999999;
+		--rule-heavy: #000000;
+	}
+}

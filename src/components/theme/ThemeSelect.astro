@@ -1,0 +1,154 @@
+---
+import Select from '@astrojs/starlight/components/Select.astro';
+import {
+	DEFAULT_READING_THEME,
+	READING_THEMES,
+	READING_THEME_STORAGE_KEY,
+	parseReadingTheme,
+	type ReadingTheme,
+} from '../../theme/reading-themes';
+---
+
+<fde-theme-controls>
+	<starlight-theme-select>
+		<Select
+			icon="sun"
+			label="Color mode"
+			options={[
+				{ label: 'Light', selected: true, value: 'light' },
+				{ label: 'Dark', selected: false, value: 'dark' },
+			]}
+			width="4.5em"
+		/>
+	</starlight-theme-select>
+
+	<fde-reading-theme-select>
+		<Select
+			icon="open-book"
+			label="Reading theme"
+			options={READING_THEMES.map((theme) => ({
+				label: theme.label,
+				selected: theme.value === DEFAULT_READING_THEME,
+				value: theme.value,
+			}))}
+			width="6.75em"
+		/>
+	</fde-reading-theme-select>
+</fde-theme-controls>
+
+{/* Keep both header and mobile-menu controls synchronized. */}
+<script is:inline>
+	StarlightThemeProvider.updatePickers();
+	FdeReadingThemeProvider.updatePickers();
+</script>
+
+<script>
+	type ColorMode = 'dark' | 'light';
+
+	declare global {
+		interface Window {
+			FdeReadingThemeProvider: {
+				updatePickers: (theme?: ReadingTheme) => void;
+			};
+		}
+	}
+
+	function readStorage(key: string): string | null {
+		try {
+			return localStorage.getItem(key);
+		} catch {
+			return null;
+		}
+	}
+
+	function writeStorage(key: string, value: string): void {
+		try {
+			localStorage.setItem(key, value);
+		} catch {
+			// The page still changes when storage is unavailable.
+		}
+	}
+
+	const parseColorMode = (value: unknown): ColorMode => (value === 'dark' ? 'dark' : 'light');
+	const loadColorMode = (): ColorMode => parseColorMode(readStorage('starlight-theme'));
+
+	function applyColorMode(mode: ColorMode): void {
+		StarlightThemeProvider.updatePickers(mode);
+		document.documentElement.dataset.theme = mode;
+		document
+			.querySelector('#fde-theme-color')
+			?.setAttribute('content', mode === 'dark' ? '#000000' : '#ffffff');
+		writeStorage('starlight-theme', mode);
+	}
+
+	function applyReadingTheme(theme: ReadingTheme): void {
+		window.FdeReadingThemeProvider.updatePickers(theme);
+		document.documentElement.dataset.readingTheme = theme;
+		writeStorage(READING_THEME_STORAGE_KEY, theme);
+	}
+
+	class FdeColorModeSelect extends HTMLElement {
+		constructor() {
+			super();
+			applyColorMode(loadColorMode());
+			this.querySelector('select')?.addEventListener('change', (event) => {
+				if (event.currentTarget instanceof HTMLSelectElement) {
+					applyColorMode(parseColorMode(event.currentTarget.value));
+				}
+			});
+		}
+	}
+
+	class FdeReadingThemeSelect extends HTMLElement {
+		constructor() {
+			super();
+			const savedTheme = parseReadingTheme(readStorage(READING_THEME_STORAGE_KEY));
+			applyReadingTheme(savedTheme);
+			this.querySelector('select')?.addEventListener('change', (event) => {
+				if (event.currentTarget instanceof HTMLSelectElement) {
+					applyReadingTheme(parseReadingTheme(event.currentTarget.value));
+				}
+			});
+		}
+	}
+
+	if (!customElements.get('starlight-theme-select')) {
+		customElements.define('starlight-theme-select', FdeColorModeSelect);
+	}
+	if (!customElements.get('fde-reading-theme-select')) {
+		customElements.define('fde-reading-theme-select', FdeReadingThemeSelect);
+	}
+</script>
+
+<style>
+	@layer starlight.components {
+		fde-theme-controls {
+			align-items: center;
+			display: flex;
+			gap: 0.55rem;
+		}
+
+		fde-reading-theme-select {
+			border-inline-start: 1px solid var(--rule);
+			padding-inline-start: 0.55rem;
+		}
+
+		@media (max-width: 60rem) and (min-width: 50rem) {
+			fde-theme-controls {
+				gap: 0.25rem;
+			}
+
+			fde-reading-theme-select {
+				padding-inline-start: 0.25rem;
+			}
+		}
+
+		@media (max-width: 30rem) {
+			fde-theme-controls {
+				align-items: stretch;
+				flex-basis: 100%;
+				justify-content: space-between;
+			}
+		}
+	}
+</style>

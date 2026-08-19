@@ -1,0 +1,77 @@
+---
+import { Icon } from '@astrojs/starlight/components';
+import {
+	DEFAULT_READING_THEME,
+	READING_THEMES,
+	READING_THEME_STORAGE_KEY,
+} from '../../theme/reading-themes';
+
+const readingThemeValues = READING_THEMES.map((theme) => theme.value);
+---
+
+{/* Apply saved preferences before paint. First-time visitors always start in light mode. */}
+<script
+	is:inline
+	define:vars={{
+		defaultReadingTheme: DEFAULT_READING_THEME,
+		readingThemeStorageKey: READING_THEME_STORAGE_KEY,
+		readingThemeValues,
+	}}
+>
+	const safeStorage = {
+		get(key) {
+			try {
+				return localStorage.getItem(key);
+			} catch {
+				return null;
+			}
+		},
+	};
+
+	window.StarlightThemeProvider = (() => {
+		const storedValue = safeStorage.get('starlight-theme');
+		const storedTheme = storedValue === 'dark' ? 'dark' : 'light';
+		document.documentElement.dataset.theme = storedTheme;
+		document.querySelector('#fde-theme-color')?.setAttribute(
+			'content',
+			storedTheme === 'dark' ? '#000000' : '#ffffff',
+		);
+
+		return {
+			updatePickers(theme = storedTheme) {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					const template = document.querySelector('#theme-icons');
+					const newIcon = template && template.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+					}
+				});
+			},
+		};
+	})();
+
+	window.FdeReadingThemeProvider = (() => {
+		const storedValue = safeStorage.get(readingThemeStorageKey);
+		const storedTheme = readingThemeValues.includes(storedValue)
+			? storedValue
+			: defaultReadingTheme;
+		document.documentElement.dataset.readingTheme = storedTheme;
+
+		return {
+			updatePickers(theme = storedTheme) {
+				document.querySelectorAll('fde-reading-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+				});
+			},
+		};
+	})();
+</script>
+
+<template id="theme-icons">
+	<Icon name="sun" class="light" />
+	<Icon name="moon" class="dark" />
+</template>
