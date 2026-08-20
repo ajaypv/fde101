@@ -77,7 +77,7 @@ const { terms } = Astro.props;
 							</div>
 							<div class="card-answer">
 								<p class="answer-term">{term.short ?? term.name}</p>
-								<p>{term.description}</p>
+								<p id={`flashcard-answer-${index}`}>{term.description}</p>
 							</div>
 							<a href={term.href}>Read the full note&nbsp; ↗</a>
 						</div>
@@ -142,6 +142,7 @@ const { terms } = Astro.props;
 		const summary = deck.querySelector<HTMLElement>('[data-flashcard-summary]');
 		const announcement = deck.querySelector<HTMLElement>('[data-flashcard-announcement]');
 		const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+		const mobileReveal = matchMedia('(max-width: 36rem)');
 		const validStatuses = new Set<CardStatus>(['need', 'know', 'saved']);
 		let statuses: Record<string, CardStatus> = {};
 		let queue = cards.map((_, index) => index);
@@ -200,8 +201,15 @@ const { terms } = Astro.props;
 
 		function setRevealed(card: HTMLElement, revealed: boolean) {
 			card.classList.toggle('is-revealed', revealed);
-			card.querySelector<HTMLElement>('[data-card-front]')?.setAttribute('aria-hidden', String(revealed));
-			card.querySelector<HTMLElement>('[data-card-back]')?.setAttribute('aria-hidden', String(!revealed));
+			const front = card.querySelector<HTMLElement>('[data-card-front]');
+			const back = card.querySelector<HTMLElement>('[data-card-back]');
+			front?.setAttribute('aria-hidden', String(revealed && !mobileReveal.matches));
+			back?.setAttribute('aria-hidden', String(!revealed));
+			const itemIndex = card.closest<HTMLElement>('[data-card-index]')?.dataset.cardIndex;
+			card.setAttribute(
+				'aria-describedby',
+				revealed ? `flashcard-answer-${itemIndex}` : `flashcard-prompt-${itemIndex}`,
+			);
 		}
 
 		function clearDrag(card: HTMLElement) {
@@ -241,8 +249,9 @@ const { terms } = Astro.props;
 		}
 
 		function revealCurrent() {
+			const item = currentItem();
 			const card = currentCard();
-			if (!card || transitioning || card.classList.contains('is-revealed')) return;
+			if (!item || !card || transitioning || card.classList.contains('is-revealed')) return;
 			setRevealed(card, true);
 			if (!reduceMotion.matches) {
 				card.animate(
@@ -253,6 +262,14 @@ const { terms } = Astro.props;
 					],
 					{ duration: 360, easing: 'cubic-bezier(.2,.8,.2,1)' },
 				);
+			}
+			if (mobileReveal.matches) {
+				requestAnimationFrame(() => {
+					item.scrollIntoView({
+						behavior: reduceMotion.matches ? 'auto' : 'smooth',
+						block: 'start',
+					});
+				});
 			}
 			if (announcement) announcement.textContent = 'Definition revealed. Choose where this card belongs.';
 		}
@@ -373,20 +390,25 @@ const { terms } = Astro.props;
 
 			card.addEventListener('pointerup', finishDrag);
 			card.addEventListener('pointercancel', cancelDrag);
-			card.addEventListener('keydown', (event) => {
-				if (item !== currentItem()) return;
-				const keyActions: Record<string, CardAction> = {
-					ArrowLeft: 'need',
-					ArrowUp: 'more',
-					ArrowRight: 'know',
-					ArrowDown: 'saved',
-					' ': 'more',
-				};
-				const action = keyActions[event.key];
-				if (!action) return;
-				event.preventDefault();
-				runAction(action);
-			});
+		});
+
+		const keyActions: Record<string, CardAction> = {
+			ArrowLeft: 'need',
+			ArrowUp: 'more',
+			ArrowRight: 'know',
+			ArrowDown: 'saved',
+			' ': 'more',
+		};
+
+		document.addEventListener('keydown', (event) => {
+			if (deck.offsetParent === null || event.defaultPrevented || event.repeat) return;
+			if (event.altKey || event.ctrlKey || event.metaKey) return;
+			const target = event.target instanceof HTMLElement ? event.target : null;
+			if (target?.closest('a, button, input, textarea, select, [contenteditable="true"]')) return;
+			const action = keyActions[event.key];
+			if (!action) return;
+			event.preventDefault();
+			runAction(action);
 		});
 
 		actionButtons.forEach((button) => {
@@ -415,6 +437,11 @@ const { terms } = Astro.props;
 			updateTotals();
 			renderCurrent(true);
 			if (announcement) announcement.textContent = 'Flashcard progress reset.';
+		});
+
+		mobileReveal.addEventListener('change', () => {
+			const card = currentCard();
+			if (card) setRevealed(card, card.classList.contains('is-revealed'));
 		});
 
 		const firstUnsorted = cards.findIndex((item) => !statuses[item.dataset.cardKey ?? '']);
@@ -851,17 +878,65 @@ const { terms } = Astro.props;
 	}
 
 	@media (max-width: 36rem) {
+		.flashcard-opening {
+			display: none;
+		}
+
+		.flashcard-progress {
+			padding-top: 0;
+		}
+
 		.flashcard-workspace {
-			padding-block: 1.25rem 2rem;
+			padding-block: 0.9rem 2rem;
 		}
 
 		.flashcard-stage {
 			margin-inline: 0.2rem 0.8rem;
+			min-height: 0;
+			perspective: none;
+		}
+
+		.flashcard-item {
+			inset: auto;
+			position: relative;
+			scroll-margin-top: calc(var(--sl-nav-height, 3.5rem) + 0.75rem);
+		}
+
+		.study-card {
+			height: auto;
+			inset: auto;
 			min-height: 25rem;
+			position: relative;
 		}
 
 		.card-face {
+			min-height: 25rem;
 			padding: 1.05rem;
+		}
+
+		.study-card.is-revealed .card-front {
+			inset: auto;
+			min-height: 13rem;
+			opacity: 1;
+			pointer-events: auto;
+			position: relative;
+			transform: none;
+		}
+
+		.study-card.is-revealed .card-front .card-hint {
+			display: none;
+		}
+
+		.study-card.is-revealed .card-back {
+			border-top: 3px double var(--rule-heavy);
+			inset: auto;
+			min-height: 18rem;
+			position: relative;
+		}
+
+		.study-card.is-revealed .card-question h3 {
+			font-size: clamp(2rem, 11vw, 3.25rem);
+			margin-top: 0.65rem;
 		}
 
 		.card-question h3 {
