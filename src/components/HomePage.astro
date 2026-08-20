@@ -1,5 +1,6 @@
 ---
 import BookContents from './BookContents.astro';
+import FlashcardDeck from './FlashcardDeck.astro';
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const withBase = (path: string) => `${basePath}${path}`;
@@ -646,7 +647,7 @@ const terms = [
 <div class="fde-home">
 	<header class="reading-choice" aria-labelledby="reading-choice-title">
 		<div class="reading-choice-copy">
-			<p>Two ways into the same material</p>
+			<p>Three ways into the same material</p>
 			<h2 id="reading-choice-title">Choose how you want to read</h2>
 		</div>
 		<div class="reading-choice-actions" role="group" aria-label="Reading experience">
@@ -657,6 +658,10 @@ const terms = [
 			<button type="button" aria-controls="book-chapters" aria-pressed="false" data-reading-button="book">
 				<strong>Book chapters</strong>
 				<span>Read the ideas in order</span>
+			</button>
+			<button type="button" aria-controls="flashcard-study" aria-pressed="false" data-reading-button="flashcards">
+				<strong>Flashcards</strong>
+				<span>Swipe, sort, and review</span>
 			</button>
 		</div>
 		<p class="visually-hidden" aria-live="polite" data-reading-status>Showing the field index.</p>
@@ -700,13 +705,17 @@ const terms = [
 	<section id="book-chapters" aria-label="Book chapters" data-reading-panel="book" hidden>
 		<BookContents />
 	</section>
+
+	<section id="flashcard-study" aria-label="Flashcard study" data-reading-panel="flashcards" hidden>
+		<FlashcardDeck terms={terms.map((term) => ({ ...term, href: withBase(term.href) }))} />
+	</section>
 </div>
 
 <script>
 	const readingButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-reading-button]'));
 	const readingPanels = Array.from(document.querySelectorAll<HTMLElement>('[data-reading-panel]'));
 	const readingStatus = document.querySelector<HTMLElement>('[data-reading-status]');
-	const readingViews = new Set(['index', 'book']);
+	const readingViews = new Set(['index', 'book', 'flashcards']);
 	const preferenceKey = 'fde101-reading-view';
 
 	const applyReadingView = (view: string, remember = false) => {
@@ -722,7 +731,9 @@ const terms = [
 		if (readingStatus) {
 			readingStatus.textContent = safeView === 'book'
 				? 'Showing the book chapters.'
-				: 'Showing the field index.';
+				: safeView === 'flashcards'
+					? 'Showing the flashcard study deck.'
+					: 'Showing the field index.';
 		}
 
 		if (remember) {
@@ -736,7 +747,7 @@ const terms = [
 	};
 
 	if (readingButtons.length && readingPanels.length) {
-		let initialView = location.hash === '#book' || location.hash === '#index'
+		let initialView = location.hash === '#book' || location.hash === '#index' || location.hash === '#flashcards'
 			? location.hash.slice(1)
 			: 'index';
 
@@ -831,7 +842,7 @@ const terms = [
 
 	.reading-choice-actions {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
 
 	.reading-choice-actions button {
@@ -931,11 +942,14 @@ const terms = [
 		outline-offset: 3px;
 	}
 
-	@media (max-width: 36rem) {
+	@media (max-width: 50rem) {
 		.reading-choice {
 			align-items: stretch;
 			grid-template-columns: 1fr;
 		}
+	}
+
+	@media (max-width: 36rem) {
 
 		.reading-choice-actions {
 			grid-template-columns: 1fr;

@@ -1,0 +1,915 @@
+---
+interface FlashcardTerm {
+	name: string;
+	short?: string;
+	description: string;
+	category: string;
+	href: string;
+}
+
+interface Props {
+	terms: readonly FlashcardTerm[];
+}
+
+const { terms } = Astro.props;
+---
+
+<section class="flashcard-deck" data-flashcard-deck data-total={terms.length} aria-labelledby="flashcard-title">
+	<header class="flashcard-opening">
+		<div>
+			<p class="flashcard-kicker">Flashcard study</p>
+			<h2 id="flashcard-title">Learn one decision at a time</h2>
+		</div>
+		<p>Try to explain the term before you reveal the note. Then place it where it belongs. Your choices stay on this device.</p>
+	</header>
+
+	<div class="flashcard-progress" aria-live="polite">
+		<span data-flashcard-position>Card 1 of {terms.length}</span>
+		<span data-flashcard-round>All terms</span>
+	</div>
+
+	<div class="flashcard-workspace">
+		<ul class="gesture-key" aria-label="Flashcard gestures">
+			<li><span aria-hidden="true">←</span><strong>Need to learn</strong></li>
+			<li><span aria-hidden="true">↑</span><strong>Learn more</strong></li>
+			<li><span aria-hidden="true">→</span><strong>I know</strong></li>
+			<li><span aria-hidden="true">↓</span><strong>Save for later</strong></li>
+		</ul>
+
+		<div class="flashcard-stage" data-flashcard-stage>
+			{terms.map((term, index) => (
+				<div
+					class="flashcard-item"
+					data-flashcard-item
+					data-card-key={term.href}
+					data-card-index={index}
+					hidden={index !== 0}
+				>
+					<article
+						class="study-card"
+						data-study-card
+						tabindex="0"
+						aria-labelledby={`flashcard-term-${index}`}
+						aria-describedby={`flashcard-prompt-${index}`}
+					>
+						<span class="swipe-intent intent-left" data-swipe-intent="left" aria-hidden="true">Need to learn</span>
+						<span class="swipe-intent intent-up" data-swipe-intent="up" aria-hidden="true">Learn more</span>
+						<span class="swipe-intent intent-right" data-swipe-intent="right" aria-hidden="true">I know</span>
+						<span class="swipe-intent intent-down" data-swipe-intent="down" aria-hidden="true">Save for later</span>
+
+						<div class="card-face card-front" data-card-front>
+							<div class="card-furniture">
+								<span>{String(index + 1).padStart(2, '0')}</span>
+								<span>{term.category}</span>
+							</div>
+							<div class="card-question">
+								<p>Can you explain this clearly?</p>
+								<h3 id={`flashcard-term-${index}`}>{term.short ?? term.name}</h3>
+								{term.short && <p class="card-long-name">{term.name}</p>}
+							</div>
+							<p class="card-hint" id={`flashcard-prompt-${index}`}>Swipe up or press “Learn more” to reveal the note.</p>
+						</div>
+
+						<div class="card-face card-back" data-card-back aria-hidden="true">
+							<div class="card-furniture">
+								<span>Field note</span>
+								<span>{term.category}</span>
+							</div>
+							<div class="card-answer">
+								<p class="answer-term">{term.short ?? term.name}</p>
+								<p>{term.description}</p>
+							</div>
+							<a href={term.href}>Read the full note&nbsp; ↗</a>
+						</div>
+					</article>
+				</div>
+			))}
+
+			<section class="flashcard-finish" data-flashcard-finish hidden aria-labelledby="flashcard-finish-title">
+				<p class="flashcard-kicker">Round complete</p>
+				<h3 id="flashcard-finish-title">You sorted the deck.</h3>
+				<p data-flashcard-summary>Choose a review pile or begin again.</p>
+				<div class="finish-actions">
+					<button type="button" data-review-pile="need">Review “Need to learn”</button>
+					<button type="button" data-review-pile="saved">Review saved cards</button>
+					<button type="button" data-reset-deck>Reset all progress</button>
+				</div>
+			</section>
+		</div>
+
+		<div class="flashcard-actions" aria-label="Place the current flashcard">
+			<button type="button" class="action-need" data-card-action="need">
+				<span aria-hidden="true">←</span>
+				<strong>Need to learn</strong>
+			</button>
+			<button type="button" class="action-more" data-card-action="more">
+				<span aria-hidden="true">↑</span>
+				<strong>Learn more</strong>
+			</button>
+			<button type="button" class="action-know" data-card-action="know">
+				<strong>I know</strong>
+				<span aria-hidden="true">→</span>
+			</button>
+			<button type="button" class="action-save" data-card-action="saved">
+				<strong>Save for later</strong>
+				<span aria-hidden="true">↓</span>
+			</button>
+		</div>
+	</div>
+
+	<footer class="flashcard-totals" aria-label="Learning progress">
+		<span><strong data-count-need>0</strong> need practice</span>
+		<span><strong data-count-know>0</strong> known</span>
+		<span><strong data-count-saved>0</strong> saved</span>
+	</footer>
+
+	<p class="visually-hidden" aria-live="assertive" data-flashcard-announcement></p>
+</section>
+
+<script>
+	type CardStatus = 'need' | 'know' | 'saved';
+	type CardAction = CardStatus | 'more';
+
+	const deck = document.querySelector<HTMLElement>('[data-flashcard-deck]');
+
+	if (deck) {
+		const storageKey = 'fde101-flashcard-progress-v1';
+		const cards = Array.from(deck.querySelectorAll<HTMLElement>('[data-flashcard-item]'));
+		const actionButtons = Array.from(deck.querySelectorAll<HTMLButtonElement>('[data-card-action]'));
+		const position = deck.querySelector<HTMLElement>('[data-flashcard-position]');
+		const round = deck.querySelector<HTMLElement>('[data-flashcard-round]');
+		const finish = deck.querySelector<HTMLElement>('[data-flashcard-finish]');
+		const summary = deck.querySelector<HTMLElement>('[data-flashcard-summary]');
+		const announcement = deck.querySelector<HTMLElement>('[data-flashcard-announcement]');
+		const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+		const validStatuses = new Set<CardStatus>(['need', 'know', 'saved']);
+		let statuses: Record<string, CardStatus> = {};
+		let queue = cards.map((_, index) => index);
+		let queuePosition = 0;
+		let roundLabel = 'All terms';
+		let dragging = false;
+		let activePointer: number | null = null;
+		let startX = 0;
+		let startY = 0;
+		let dragX = 0;
+		let dragY = 0;
+		let transitioning = false;
+
+		try {
+			const saved = JSON.parse(localStorage.getItem(storageKey) ?? '{}') as Record<string, unknown>;
+			statuses = Object.fromEntries(
+				Object.entries(saved).filter((entry): entry is [string, CardStatus] => validStatuses.has(entry[1] as CardStatus)),
+			);
+		} catch {
+			statuses = {};
+		}
+
+		const currentItem = () => cards[queue[queuePosition]];
+		const currentCard = () => currentItem()?.querySelector<HTMLElement>('[data-study-card]') ?? null;
+
+		function storeProgress() {
+			try {
+				localStorage.setItem(storageKey, JSON.stringify(statuses));
+			} catch {
+				// The deck remains usable when storage is unavailable.
+			}
+		}
+
+		function count(status: CardStatus) {
+			return Object.values(statuses).filter((value) => value === status).length;
+		}
+
+		function updateTotals() {
+			const need = count('need');
+			const know = count('know');
+			const saved = count('saved');
+			const needCount = deck.querySelector<HTMLElement>('[data-count-need]');
+			const knowCount = deck.querySelector<HTMLElement>('[data-count-know]');
+			const savedCount = deck.querySelector<HTMLElement>('[data-count-saved]');
+			if (needCount) needCount.textContent = String(need);
+			if (knowCount) knowCount.textContent = String(know);
+			if (savedCount) savedCount.textContent = String(saved);
+			if (summary) {
+				summary.textContent = `${know} known, ${need} to practise, and ${saved} saved for later.`;
+			}
+			const needReview = deck.querySelector<HTMLButtonElement>('[data-review-pile="need"]');
+			const savedReview = deck.querySelector<HTMLButtonElement>('[data-review-pile="saved"]');
+			if (needReview) needReview.disabled = need === 0;
+			if (savedReview) savedReview.disabled = saved === 0;
+		}
+
+		function setRevealed(card: HTMLElement, revealed: boolean) {
+			card.classList.toggle('is-revealed', revealed);
+			card.querySelector<HTMLElement>('[data-card-front]')?.setAttribute('aria-hidden', String(revealed));
+			card.querySelector<HTMLElement>('[data-card-back]')?.setAttribute('aria-hidden', String(!revealed));
+		}
+
+		function clearDrag(card: HTMLElement) {
+			card.classList.remove('is-dragging');
+			card.removeAttribute('data-drag-direction');
+			card.style.removeProperty('transform');
+			card.style.removeProperty('--swipe-strength');
+		}
+
+		function renderCurrent(focusCard = false) {
+			cards.forEach((item) => {
+				item.hidden = true;
+				const card = item.querySelector<HTMLElement>('[data-study-card]');
+				if (card) {
+					clearDrag(card);
+					setRevealed(card, false);
+					card.style.removeProperty('opacity');
+				}
+			});
+
+			const item = currentItem();
+			const complete = !item;
+			if (finish) finish.hidden = !complete;
+			actionButtons.forEach((button) => { button.disabled = complete; });
+
+			if (complete) {
+				if (position) position.textContent = `Completed ${queue.length} cards`;
+				updateTotals();
+				finish?.querySelector<HTMLElement>('button:not(:disabled)')?.focus();
+				return;
+			}
+
+			item.hidden = false;
+			if (position) position.textContent = `Card ${queuePosition + 1} of ${queue.length}`;
+			if (round) round.textContent = roundLabel;
+			if (focusCard) currentCard()?.focus();
+		}
+
+		function revealCurrent() {
+			const card = currentCard();
+			if (!card || transitioning || card.classList.contains('is-revealed')) return;
+			setRevealed(card, true);
+			if (!reduceMotion.matches) {
+				card.animate(
+					[
+						{ transform: 'translate3d(0, 0, 0)' },
+						{ transform: 'translate3d(0, -1.35rem, 0)' },
+						{ transform: 'translate3d(0, 0, 0)' },
+					],
+					{ duration: 360, easing: 'cubic-bezier(.2,.8,.2,1)' },
+				);
+			}
+			if (announcement) announcement.textContent = 'Definition revealed. Choose where this card belongs.';
+		}
+
+		function exitTransform(action: CardStatus) {
+			if (action === 'need') return 'translate3d(-125%, 1rem, 0) rotate(-11deg)';
+			if (action === 'know') return 'translate3d(125%, 1rem, 0) rotate(11deg)';
+			return 'translate3d(0, 115%, 0) rotate(2deg)';
+		}
+
+		function placeCurrent(action: CardStatus) {
+			const item = currentItem();
+			const card = currentCard();
+			if (!item || !card || transitioning) return;
+			transitioning = true;
+			const key = item.dataset.cardKey;
+			if (key) statuses[key] = action;
+			storeProgress();
+			updateTotals();
+
+			const labels: Record<CardStatus, string> = {
+				need: 'Placed in Need to learn.',
+				know: 'Placed in I know.',
+				saved: 'Saved for later.',
+			};
+			if (announcement) announcement.textContent = labels[action];
+
+			const advance = () => {
+				queuePosition += 1;
+				transitioning = false;
+				renderCurrent(true);
+			};
+
+			if (reduceMotion.matches) {
+				advance();
+				return;
+			}
+
+			const animation = card.animate(
+				[
+					{ transform: card.style.transform || 'translate3d(0, 0, 0)', opacity: 1 },
+					{ transform: exitTransform(action), opacity: 0 },
+				],
+				{ duration: 270, easing: 'cubic-bezier(.35,.75,.35,1)', fill: 'forwards' },
+			);
+			animation.finished.then(advance, advance);
+		}
+
+		function runAction(action: CardAction) {
+			if (action === 'more') revealCurrent();
+			else placeCurrent(action);
+		}
+
+		function dragDirection(x: number, y: number) {
+			if (Math.max(Math.abs(x), Math.abs(y)) < 12) return '';
+			if (Math.abs(y) > Math.abs(x)) return y < 0 ? 'up' : 'down';
+			return x < 0 ? 'left' : 'right';
+		}
+
+		function actionFromDrag(card: HTMLElement): CardAction | null {
+			const threshold = Math.min(96, Math.max(64, card.clientWidth * 0.2));
+			if (Math.max(Math.abs(dragX), Math.abs(dragY)) < threshold) return null;
+			if (Math.abs(dragY) > Math.abs(dragX)) return dragY < 0 ? 'more' : 'saved';
+			return dragX < 0 ? 'need' : 'know';
+		}
+
+		cards.forEach((item) => {
+			const card = item.querySelector<HTMLElement>('[data-study-card]');
+			if (!card) return;
+
+			card.addEventListener('pointerdown', (event) => {
+				if (item !== currentItem()) return;
+				if (event.pointerType === 'mouse' && event.button !== 0) return;
+				if ((event.target as HTMLElement).closest('a, button')) return;
+				dragging = true;
+				activePointer = event.pointerId;
+				startX = event.clientX;
+				startY = event.clientY;
+				dragX = 0;
+				dragY = 0;
+				card.classList.add('is-dragging');
+				card.setPointerCapture(event.pointerId);
+			});
+
+			card.addEventListener('pointermove', (event) => {
+				if (!dragging || event.pointerId !== activePointer) return;
+				dragX = event.clientX - startX;
+				dragY = event.clientY - startY;
+				const direction = dragDirection(dragX, dragY);
+				const strength = Math.min(1, Math.max(Math.abs(dragX), Math.abs(dragY)) / 110);
+				card.dataset.dragDirection = direction;
+				card.style.setProperty('--swipe-strength', String(strength));
+				card.style.transform = `translate3d(${dragX}px, ${dragY}px, 0) rotate(${dragX * 0.025}deg)`;
+			});
+
+			const finishDrag = (event: PointerEvent) => {
+				if (!dragging || event.pointerId !== activePointer) return;
+				dragging = false;
+				activePointer = null;
+				const action = actionFromDrag(card);
+				card.classList.remove('is-dragging');
+				card.removeAttribute('data-drag-direction');
+				card.style.removeProperty('--swipe-strength');
+				if (action === 'need' || action === 'know' || action === 'saved') {
+					runAction(action);
+				} else {
+					clearDrag(card);
+					if (action === 'more') runAction(action);
+				}
+			};
+
+			const cancelDrag = (event: PointerEvent) => {
+				if (!dragging || event.pointerId !== activePointer) return;
+				dragging = false;
+				activePointer = null;
+				clearDrag(card);
+			};
+
+			card.addEventListener('pointerup', finishDrag);
+			card.addEventListener('pointercancel', cancelDrag);
+			card.addEventListener('keydown', (event) => {
+				if (item !== currentItem()) return;
+				const keyActions: Record<string, CardAction> = {
+					ArrowLeft: 'need',
+					ArrowUp: 'more',
+					ArrowRight: 'know',
+					ArrowDown: 'saved',
+					' ': 'more',
+				};
+				const action = keyActions[event.key];
+				if (!action) return;
+				event.preventDefault();
+				runAction(action);
+			});
+		});
+
+		actionButtons.forEach((button) => {
+			button.addEventListener('click', () => runAction((button.dataset.cardAction ?? 'more') as CardAction));
+		});
+
+		deck.querySelectorAll<HTMLButtonElement>('[data-review-pile]').forEach((button) => {
+			button.addEventListener('click', () => {
+				const pile = button.dataset.reviewPile as CardStatus;
+				queue = cards
+					.map((item, index) => ({ index, key: item.dataset.cardKey ?? '' }))
+					.filter((entry) => statuses[entry.key] === pile)
+					.map((entry) => entry.index);
+				queuePosition = 0;
+				roundLabel = pile === 'need' ? 'Need to learn' : 'Saved for later';
+				renderCurrent(true);
+			});
+		});
+
+		deck.querySelector<HTMLButtonElement>('[data-reset-deck]')?.addEventListener('click', () => {
+			statuses = {};
+			storeProgress();
+			queue = cards.map((_, index) => index);
+			queuePosition = 0;
+			roundLabel = 'All terms';
+			updateTotals();
+			renderCurrent(true);
+			if (announcement) announcement.textContent = 'Flashcard progress reset.';
+		});
+
+		const firstUnsorted = cards.findIndex((item) => !statuses[item.dataset.cardKey ?? '']);
+		queuePosition = firstUnsorted >= 0 ? firstUnsorted : cards.length;
+		updateTotals();
+		renderCurrent();
+	}
+</script>
+
+<style>
+	.flashcard-deck {
+		margin-inline: auto;
+		max-width: 68rem;
+	}
+
+	.flashcard-opening {
+		align-items: end;
+		border-block: 3px double var(--rule-heavy);
+		display: grid;
+		gap: clamp(1.5rem, 5vw, 5rem);
+		grid-template-columns: minmax(15rem, 0.85fr) minmax(20rem, 1.15fr);
+		padding-block: clamp(1.6rem, 4vw, 3rem);
+	}
+
+	.flashcard-kicker {
+		font-family: var(--sans);
+		font-size: 0.66rem;
+		font-weight: 760;
+		letter-spacing: 0.13em;
+		margin: 0;
+		text-transform: uppercase;
+	}
+
+	.flashcard-opening h2,
+	.flashcard-finish h3 {
+		border: 0;
+		font-family: var(--serif);
+		font-size: clamp(2rem, 4.8vw, 3.8rem);
+		letter-spacing: -0.035em;
+		line-height: 1;
+		margin: 0.55rem 0 0;
+		padding: 0;
+	}
+
+	.flashcard-opening > p {
+		font-family: var(--serif);
+		font-size: clamp(1.05rem, 1.5vw, 1.24rem);
+		line-height: 1.58;
+		margin: 0;
+		max-width: 38rem;
+	}
+
+	.flashcard-progress,
+	.flashcard-totals {
+		display: flex;
+		font-family: var(--sans);
+		font-size: 0.68rem;
+		font-weight: 720;
+		justify-content: space-between;
+		letter-spacing: 0.1em;
+		padding-block: 0.8rem;
+		text-transform: uppercase;
+	}
+
+	.flashcard-progress {
+		border-bottom: 1px solid var(--rule);
+	}
+
+	.flashcard-workspace {
+		display: grid;
+		gap: 1.25rem;
+		grid-template-columns: minmax(8rem, 0.42fr) minmax(18rem, 1.6fr) minmax(9rem, 0.52fr);
+		padding-block: clamp(1.5rem, 4vw, 3.25rem);
+	}
+
+	.gesture-key {
+		align-self: center;
+		display: grid;
+		gap: 0.75rem;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.gesture-key li {
+		align-items: center;
+		display: grid;
+		font-family: var(--sans);
+		font-size: 0.67rem;
+		gap: 0.65rem;
+		grid-template-columns: 1.8rem minmax(0, 1fr);
+		letter-spacing: 0.06em;
+		line-height: 1.25;
+		text-transform: uppercase;
+	}
+
+	.gesture-key span {
+		align-items: center;
+		border: 1px solid var(--rule-heavy);
+		display: flex;
+		height: 1.8rem;
+		justify-content: center;
+		width: 1.8rem;
+	}
+
+	.flashcard-stage {
+		isolation: isolate;
+		min-height: clamp(25rem, 54vw, 33rem);
+		perspective: 80rem;
+		position: relative;
+	}
+
+	.flashcard-item {
+		inset: 0;
+		position: absolute;
+	}
+
+	.flashcard-item[hidden],
+	.flashcard-finish[hidden] {
+		display: none;
+	}
+
+	.flashcard-stage::before,
+	.flashcard-stage::after {
+		background: var(--paper);
+		border: 1px solid var(--rule);
+		content: '';
+		inset: 0;
+		position: absolute;
+		z-index: -1;
+	}
+
+	.flashcard-stage::before {
+		transform: translate(0.55rem, 0.55rem) rotate(0.8deg);
+	}
+
+	.flashcard-stage::after {
+		transform: translate(0.95rem, 0.95rem) rotate(1.4deg);
+		z-index: -2;
+	}
+
+	.study-card {
+		background: var(--paper);
+		border: 2px solid var(--rule-heavy);
+		box-shadow: 0 1.15rem 3rem color-mix(in srgb, var(--ink) 10%, transparent);
+		cursor: grab;
+		height: 100%;
+		inset: 0;
+		overflow: hidden;
+		position: absolute;
+		touch-action: none;
+		transform-origin: 50% 85%;
+		transition: box-shadow 180ms ease;
+		user-select: none;
+		will-change: transform;
+	}
+
+	.study-card.is-dragging {
+		box-shadow: 0 1.6rem 4rem color-mix(in srgb, var(--ink) 18%, transparent);
+		cursor: grabbing;
+		transition: none;
+	}
+
+	.study-card:focus-visible {
+		outline: 3px solid var(--ink);
+		outline-offset: 5px;
+	}
+
+	.card-face {
+		display: grid;
+		grid-template-rows: auto 1fr auto;
+		inset: 0;
+		padding: clamp(1.2rem, 4vw, 2.35rem);
+		position: absolute;
+		transition: opacity 230ms ease, transform 330ms cubic-bezier(.2,.8,.2,1);
+	}
+
+	.card-front {
+		opacity: 1;
+		transform: translateY(0);
+	}
+
+	.card-back {
+		opacity: 0;
+		pointer-events: none;
+		transform: translateY(16%);
+	}
+
+	.study-card.is-revealed .card-front {
+		opacity: 0;
+		pointer-events: none;
+		transform: translateY(-16%);
+	}
+
+	.study-card.is-revealed .card-back {
+		opacity: 1;
+		pointer-events: auto;
+		transform: translateY(0);
+	}
+
+	.card-furniture {
+		border-bottom: 1px solid var(--rule);
+		display: flex;
+		font-family: var(--sans);
+		font-size: 0.64rem;
+		font-weight: 740;
+		justify-content: space-between;
+		letter-spacing: 0.11em;
+		padding-bottom: 0.7rem;
+		text-transform: uppercase;
+	}
+
+	.card-question,
+	.card-answer {
+		align-self: center;
+		margin-inline: auto;
+		max-width: 34rem;
+		text-align: center;
+	}
+
+	.card-question > p:first-child,
+	.answer-term {
+		font-family: var(--sans);
+		font-size: 0.68rem;
+		font-weight: 740;
+		letter-spacing: 0.11em;
+		margin: 0;
+		text-transform: uppercase;
+	}
+
+	.card-question h3 {
+		font-family: var(--serif);
+		font-size: clamp(2.7rem, 7vw, 5.6rem);
+		font-weight: 650;
+		letter-spacing: -0.055em;
+		line-height: 0.92;
+		margin: 1rem 0 0;
+		text-wrap: balance;
+	}
+
+	.card-long-name {
+		font-family: var(--sans);
+		font-size: 0.76rem;
+		font-weight: 650;
+		letter-spacing: 0.07em;
+		line-height: 1.35;
+		margin: 1rem auto 0;
+		max-width: 34rem;
+		text-transform: uppercase;
+	}
+
+	.card-hint,
+	.card-back > a {
+		font-family: var(--sans);
+		font-size: 0.68rem;
+		font-weight: 690;
+		letter-spacing: 0.06em;
+		margin: 0;
+		text-align: center;
+		text-transform: uppercase;
+	}
+
+	.card-answer > p:last-child {
+		font-family: var(--serif);
+		font-size: clamp(1.25rem, 2.9vw, 1.8rem);
+		line-height: 1.45;
+		margin: 1rem 0 0;
+		text-wrap: pretty;
+	}
+
+	.card-back > a {
+		color: var(--ink);
+		justify-self: center;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.35rem;
+	}
+
+	.swipe-intent {
+		background: var(--ink);
+		color: var(--paper);
+		font-family: var(--sans);
+		font-size: 0.68rem;
+		font-weight: 800;
+		letter-spacing: 0.1em;
+		opacity: 0;
+		padding: 0.45rem 0.65rem;
+		pointer-events: none;
+		position: absolute;
+		text-transform: uppercase;
+		transition: opacity 100ms linear;
+		z-index: 4;
+	}
+
+	.intent-left { left: 1rem; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+	.intent-up { left: 50%; top: 1rem; transform: translateX(-50%); }
+	.intent-right { right: 1rem; top: 50%; transform: translateY(-50%) rotate(90deg); }
+	.intent-down { bottom: 1rem; left: 50%; transform: translateX(-50%); }
+
+	.study-card[data-drag-direction='left'] .intent-left,
+	.study-card[data-drag-direction='up'] .intent-up,
+	.study-card[data-drag-direction='right'] .intent-right,
+	.study-card[data-drag-direction='down'] .intent-down {
+		opacity: var(--swipe-strength, 0);
+	}
+
+	.flashcard-actions {
+		align-content: center;
+		display: grid;
+		gap: 0.6rem;
+	}
+
+	.flashcard-actions button,
+	.finish-actions button {
+		appearance: none;
+		background: var(--paper);
+		border: 1px solid var(--rule-heavy);
+		border-radius: 0;
+		color: var(--ink);
+		cursor: pointer;
+		font-family: var(--sans);
+		font-size: 0.66rem;
+		font-weight: 760;
+		letter-spacing: 0.055em;
+		min-height: 3.2rem;
+		padding: 0.7rem 0.8rem;
+		text-transform: uppercase;
+	}
+
+	.flashcard-actions button {
+		align-items: center;
+		display: flex;
+		gap: 0.5rem;
+		justify-content: space-between;
+		text-align: left;
+	}
+
+	.flashcard-actions button:hover,
+	.flashcard-actions button:focus-visible,
+	.finish-actions button:hover,
+	.finish-actions button:focus-visible {
+		background: var(--ink);
+		color: var(--paper);
+	}
+
+	.flashcard-actions button:focus-visible,
+	.finish-actions button:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 3px;
+	}
+
+	.flashcard-actions button:disabled,
+	.finish-actions button:disabled {
+		cursor: not-allowed;
+		opacity: 0.42;
+	}
+
+	.flashcard-finish {
+		align-content: center;
+		background: var(--paper);
+		border: 2px solid var(--rule-heavy);
+		display: grid;
+		height: 100%;
+		inset: 0;
+		padding: clamp(1.5rem, 5vw, 3rem);
+		position: absolute;
+		text-align: center;
+	}
+
+	.flashcard-finish > p:not(.flashcard-kicker) {
+		font-family: var(--serif);
+		font-size: 1.15rem;
+		line-height: 1.55;
+		margin: 1.25rem auto 0;
+		max-width: 34rem;
+	}
+
+	.finish-actions {
+		display: grid;
+		gap: 0.6rem;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		margin-top: 2rem;
+	}
+
+	.flashcard-totals {
+		border-block: 3px double var(--rule-heavy);
+		gap: 1rem;
+		justify-content: center;
+	}
+
+	.flashcard-totals span + span::before {
+		content: '·';
+		margin-inline-end: 1rem;
+	}
+
+	@media (max-width: 62rem) {
+		.flashcard-workspace {
+			grid-template-columns: 1fr;
+		}
+
+		.gesture-key {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			order: 2;
+		}
+
+		.gesture-key li {
+			grid-template-columns: 1fr;
+			justify-items: center;
+			text-align: center;
+		}
+
+		.flashcard-stage { order: 1; }
+
+		.flashcard-actions {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			order: 3;
+		}
+
+		.flashcard-actions button {
+			align-content: center;
+			display: grid;
+			justify-items: center;
+			text-align: center;
+		}
+	}
+
+	@media (max-width: 50rem) {
+		.flashcard-opening {
+			grid-template-columns: 1fr;
+		}
+
+		.flashcard-stage {
+			min-height: 28rem;
+		}
+	}
+
+	@media (max-width: 36rem) {
+		.flashcard-workspace {
+			padding-block: 1.25rem 2rem;
+		}
+
+		.flashcard-stage {
+			margin-inline: 0.2rem 0.8rem;
+			min-height: 25rem;
+		}
+
+		.card-face {
+			padding: 1.05rem;
+		}
+
+		.card-question h3 {
+			font-size: clamp(2.35rem, 14vw, 4rem);
+		}
+
+		.card-answer > p:last-child {
+			font-size: clamp(1.15rem, 5.7vw, 1.48rem);
+		}
+
+		.gesture-key {
+			display: none;
+		}
+
+		.flashcard-actions {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		.flashcard-actions button {
+			min-height: 3.7rem;
+		}
+
+		.finish-actions {
+			grid-template-columns: 1fr;
+		}
+
+		.flashcard-totals {
+			align-items: center;
+			flex-direction: column;
+			gap: 0.35rem;
+		}
+
+		.flashcard-totals span + span::before {
+			content: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.card-face,
+		.study-card,
+		.swipe-intent {
+			transition: none;
+		}
+	}
+
+	@media print {
+		.flashcard-deck {
+			display: none;
+		}
+	}
+</style>
