@@ -53,7 +53,9 @@ The table below is useful for quick practice.
 
 When you need the full answer, open the [Production RAG interview handbook](./production-rag-interview-handbook/).
 
-It covers 25 production questions with an answer strategy, one continuing airline scenario, code, library choices, failure cases, measurements, and follow-up questions. It also compares Pydantic AI, LangChain, and LangGraph and explains production structured-output methods.
+It covers 26 production questions with an answer strategy, one continuing airline scenario, code, library choices, failure cases, measurements, and follow-up questions. It also compares Pydantic AI, LangChain, and LangGraph and explains production structured-output methods.
+
+For one focused retrieval question, read [Can RAG work without a vector database?](./rag-without-vector-database/).
 
 ## How to answer without sounding memorized
 
@@ -171,6 +173,7 @@ Practice the full answers:
 
 - [Production RAG interview handbook](./production-rag-interview-handbook/)
 - [Production RAG pipeline](./production-rag-pipeline/)
+- [RAG without a vector database](./rag-without-vector-database/)
 - [RAG evaluation](./evaluate-rag-system/)
 - [RAG debugging](./rag-debugging/)
 - [Agent versus workflow](./agent-vs-workflow/)
