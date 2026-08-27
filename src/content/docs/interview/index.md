@@ -47,6 +47,14 @@ There is no reliable public ranking of AI-engineering interview frequency. Job l
 
 The questions below repeatedly test the same production skills: can you explain the system, find where it fails, name the trade-off, and prove that your change helped?
 
+## Start with the production RAG deep dive
+
+The table below is useful for quick practice.
+
+When you need the full answer, open the [Production RAG interview handbook](./production-rag-interview-handbook/).
+
+It covers 25 production questions with an answer strategy, one continuing airline scenario, code, library choices, failure cases, measurements, and follow-up questions. It also compares Pydantic AI, LangChain, and LangGraph and explains production structured-output methods.
+
 ## How to answer without sounding memorized
 
 Use four moves:
@@ -161,6 +169,7 @@ Choose one example system—such as an airline policy assistant, support assista
 
 Practice the full answers:
 
+- [Production RAG interview handbook](./production-rag-interview-handbook/)
 - [Production RAG pipeline](./production-rag-pipeline/)
 - [RAG evaluation](./evaluate-rag-system/)
 - [RAG debugging](./rag-debugging/)

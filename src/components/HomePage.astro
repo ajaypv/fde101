@@ -712,6 +712,7 @@ const terms = [
 </div>
 
 <script>
+	const home = document.querySelector<HTMLElement>('.fde-home');
 	const readingButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-reading-button]'));
 	const readingPanels = Array.from(document.querySelectorAll<HTMLElement>('[data-reading-panel]'));
 	const readingStatus = document.querySelector<HTMLElement>('[data-reading-status]');
@@ -720,6 +721,7 @@ const terms = [
 
 	const applyReadingView = (view: string, remember = false) => {
 		const safeView = readingViews.has(view) ? view : 'index';
+		if (home) home.dataset.readingView = safeView;
 
 		readingButtons.forEach((button) => {
 			button.setAttribute('aria-pressed', String(button.dataset.readingButton === safeView));
@@ -950,14 +952,43 @@ const terms = [
 	}
 
 	@media (max-width: 36rem) {
+		.reading-choice {
+			gap: 0.75rem;
+			padding-block: 0.65rem 0.85rem;
+		}
+
+		.fde-home[data-reading-view='flashcards'] .reading-choice-copy {
+			display: none;
+		}
 
 		.reading-choice-actions {
-			grid-template-columns: 1fr;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}
 
 		.reading-choice-actions button + button {
-			border-block-start: 0;
-			border-inline-start: 1px solid var(--rule-heavy);
+			border-block-start: 1px solid var(--rule-heavy);
+			border-inline-start: 0;
+		}
+
+		.reading-choice-actions button {
+			align-items: center;
+			justify-content: center;
+			min-height: 3.25rem;
+			padding: 0.65rem 0.35rem;
+			text-align: center;
+		}
+
+		.reading-choice-actions strong {
+			font-size: 0.68rem;
+			letter-spacing: 0.025em;
+		}
+
+		.reading-choice-actions span {
+			display: none;
+		}
+
+		.fde-home[data-reading-view='flashcards'] [data-reading-panel='flashcards'] {
+			padding-top: 0.75rem;
 		}
 
 		.index-sort-row {

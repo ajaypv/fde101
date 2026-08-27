@@ -23,9 +23,22 @@ const { terms } = Astro.props;
 		<p>Try to explain the term before you reveal the note. Then place it where it belongs. Your choices stay on this device.</p>
 	</header>
 
-	<div class="flashcard-progress" aria-live="polite">
-		<span data-flashcard-position>Card 1 of {terms.length}</span>
-		<span data-flashcard-round>All terms</span>
+	<div class="flashcard-progress">
+		<div class="flashcard-progress-copy" aria-live="polite">
+			<span data-flashcard-position>Card 1 of {terms.length}</span>
+			<span data-flashcard-round>All terms</span>
+		</div>
+		<div
+			class="flashcard-meter"
+			data-flashcard-meter
+			role="progressbar"
+			aria-label="Cards completed in this round"
+			aria-valuemin="0"
+			aria-valuemax={terms.length}
+			aria-valuenow="0"
+		>
+			<span data-flashcard-meter-fill></span>
+		</div>
 	</div>
 
 	<div class="flashcard-workspace">
@@ -99,20 +112,20 @@ const { terms } = Astro.props;
 
 		<div class="flashcard-actions" aria-label="Place the current flashcard">
 			<button type="button" class="action-need" data-card-action="need">
-				<span aria-hidden="true">←</span>
-				<strong>Need to learn</strong>
+				<span class="action-icon" aria-hidden="true">←</span>
+				<strong><span class="action-label-full">Need to learn</span><span class="action-label-mobile">Learn</span></strong>
 			</button>
 			<button type="button" class="action-more" data-card-action="more">
-				<span aria-hidden="true">↑</span>
-				<strong>Learn more</strong>
+				<span class="action-icon" aria-hidden="true">↑</span>
+				<strong><span class="action-label-full">Learn more</span><span class="action-label-mobile">Reveal</span></strong>
 			</button>
 			<button type="button" class="action-know" data-card-action="know">
-				<strong>I know</strong>
-				<span aria-hidden="true">→</span>
+				<strong><span class="action-label-full">I know</span><span class="action-label-mobile">Know</span></strong>
+				<span class="action-icon" aria-hidden="true">→</span>
 			</button>
 			<button type="button" class="action-save" data-card-action="saved">
-				<strong>Save for later</strong>
-				<span aria-hidden="true">↓</span>
+				<strong><span class="action-label-full">Save for later</span><span class="action-label-mobile">Save</span></strong>
+				<span class="action-icon" aria-hidden="true">↓</span>
 			</button>
 		</div>
 	</div>
@@ -138,6 +151,8 @@ const { terms } = Astro.props;
 		const actionButtons = Array.from(deck.querySelectorAll<HTMLButtonElement>('[data-card-action]'));
 		const position = deck.querySelector<HTMLElement>('[data-flashcard-position]');
 		const round = deck.querySelector<HTMLElement>('[data-flashcard-round]');
+		const meter = deck.querySelector<HTMLElement>('[data-flashcard-meter]');
+		const meterFill = deck.querySelector<HTMLElement>('[data-flashcard-meter-fill]');
 		const finish = deck.querySelector<HTMLElement>('[data-flashcard-finish]');
 		const summary = deck.querySelector<HTMLElement>('[data-flashcard-summary]');
 		const announcement = deck.querySelector<HTMLElement>('[data-flashcard-announcement]');
@@ -212,6 +227,14 @@ const { terms } = Astro.props;
 			);
 		}
 
+		function updateMeter(completed: number, total: number) {
+			const safeTotal = Math.max(total, 1);
+			const safeCompleted = Math.min(Math.max(completed, 0), total);
+			meter?.setAttribute('aria-valuemax', String(total));
+			meter?.setAttribute('aria-valuenow', String(safeCompleted));
+			if (meterFill) meterFill.style.width = `${(safeCompleted / safeTotal) * 100}%`;
+		}
+
 		function clearDrag(card: HTMLElement) {
 			card.classList.remove('is-dragging');
 			card.removeAttribute('data-drag-direction');
@@ -232,11 +255,13 @@ const { terms } = Astro.props;
 
 			const item = currentItem();
 			const complete = !item;
+			deck.toggleAttribute('data-complete', complete);
 			if (finish) finish.hidden = !complete;
 			actionButtons.forEach((button) => { button.disabled = complete; });
 
 			if (complete) {
 				if (position) position.textContent = `Completed ${queue.length} cards`;
+				updateMeter(queue.length, queue.length);
 				updateTotals();
 				finish?.querySelector<HTMLElement>('button:not(:disabled)')?.focus();
 				return;
@@ -245,6 +270,7 @@ const { terms } = Astro.props;
 			item.hidden = false;
 			if (position) position.textContent = `Card ${queuePosition + 1} of ${queue.length}`;
 			if (round) round.textContent = roundLabel;
+			updateMeter(queuePosition, queue.length);
 			if (focusCard) currentCard()?.focus();
 		}
 
@@ -495,19 +521,40 @@ const { terms } = Astro.props;
 	}
 
 	.flashcard-progress,
-	.flashcard-totals {
-		display: flex;
+	.flashcard-totals,
+	.flashcard-progress-copy {
 		font-family: var(--sans);
 		font-size: 0.68rem;
 		font-weight: 720;
-		justify-content: space-between;
 		letter-spacing: 0.1em;
-		padding-block: 0.8rem;
 		text-transform: uppercase;
 	}
 
 	.flashcard-progress {
 		border-bottom: 1px solid var(--rule);
+		display: grid;
+		gap: 0.65rem;
+		padding-block: 0.8rem;
+	}
+
+	.flashcard-progress-copy,
+	.flashcard-totals {
+		display: flex;
+		justify-content: space-between;
+	}
+
+	.flashcard-meter {
+		background: color-mix(in srgb, var(--ink) 14%, transparent);
+		height: 2px;
+		overflow: hidden;
+	}
+
+	.flashcard-meter > span {
+		background: var(--ink);
+		display: block;
+		height: 100%;
+		transition: width 260ms cubic-bezier(.2,.8,.2,1);
+		width: 0;
 	}
 
 	.flashcard-workspace {
@@ -778,6 +825,10 @@ const { terms } = Astro.props;
 		text-align: left;
 	}
 
+	.action-label-mobile {
+		display: none;
+	}
+
 	.flashcard-actions button:hover,
 	.flashcard-actions button:focus-visible,
 	.finish-actions button:hover,
@@ -829,6 +880,7 @@ const { terms } = Astro.props;
 		border-block: 3px double var(--rule-heavy);
 		gap: 1rem;
 		justify-content: center;
+		padding-block: 0.8rem;
 	}
 
 	.flashcard-totals span + span::before {
@@ -878,22 +930,44 @@ const { terms } = Astro.props;
 	}
 
 	@media (max-width: 36rem) {
+		.flashcard-deck {
+			padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+		}
+
 		.flashcard-opening {
 			display: none;
 		}
 
 		.flashcard-progress {
-			padding-top: 0;
+			background: var(--paper);
+			gap: 0.5rem;
+			padding: 0.55rem 0.15rem 0.7rem;
+			position: sticky;
+			top: var(--sl-nav-height, 3.5rem);
+			z-index: 5;
+		}
+
+		.flashcard-progress-copy {
+			font-size: 0.61rem;
+			letter-spacing: 0.08em;
+		}
+
+		.flashcard-meter {
+			height: 3px;
 		}
 
 		.flashcard-workspace {
-			padding-block: 0.9rem 2rem;
+			padding-block: 0.75rem 1.35rem;
 		}
 
 		.flashcard-stage {
-			margin-inline: 0.2rem 0.8rem;
+			margin-inline: 0.15rem 0.6rem;
 			min-height: 0;
 			perspective: none;
+		}
+
+		.flashcard-deck[data-complete] .flashcard-stage {
+			min-height: 31rem;
 		}
 
 		.flashcard-item {
@@ -905,22 +979,28 @@ const { terms } = Astro.props;
 		.study-card {
 			height: auto;
 			inset: auto;
-			min-height: 25rem;
+			min-height: clamp(23rem, 54svh, 28rem);
 			position: relative;
 		}
 
 		.card-face {
-			min-height: 25rem;
-			padding: 1.05rem;
+			min-height: clamp(23rem, 54svh, 28rem);
+			padding: 1rem;
 		}
 
 		.study-card.is-revealed .card-front {
 			inset: auto;
-			min-height: 13rem;
+			min-height: 11.5rem;
 			opacity: 1;
 			pointer-events: auto;
 			position: relative;
 			transform: none;
+		}
+
+		.study-card.is-revealed {
+			cursor: auto;
+			touch-action: pan-y;
+			user-select: text;
 		}
 
 		.study-card.is-revealed .card-front .card-hint {
@@ -930,8 +1010,24 @@ const { terms } = Astro.props;
 		.study-card.is-revealed .card-back {
 			border-top: 3px double var(--rule-heavy);
 			inset: auto;
-			min-height: 18rem;
+			min-height: 17rem;
 			position: relative;
+		}
+
+		.study-card.is-revealed .card-answer {
+			align-self: start;
+			margin: 1.5rem 0 1.75rem;
+			max-width: none;
+			text-align: left;
+		}
+
+		.study-card.is-revealed .card-back > a {
+			align-items: center;
+			display: inline-flex;
+			justify-self: start;
+			min-height: 2.75rem;
+			padding-block: 0.5rem;
+			text-align: left;
 		}
 
 		.study-card.is-revealed .card-question h3 {
@@ -944,7 +1040,8 @@ const { terms } = Astro.props;
 		}
 
 		.card-answer > p:last-child {
-			font-size: clamp(1.15rem, 5.7vw, 1.48rem);
+			font-size: clamp(1.16rem, 5.4vw, 1.42rem);
+			line-height: 1.52;
 		}
 
 		.gesture-key {
@@ -952,11 +1049,40 @@ const { terms } = Astro.props;
 		}
 
 		.flashcard-actions {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
+			background: var(--paper);
+			border: 3px double var(--rule-heavy);
+			bottom: max(0.5rem, env(safe-area-inset-bottom));
+			box-shadow: 0 0.7rem 2.2rem color-mix(in srgb, var(--ink) 18%, transparent);
+			gap: 0.25rem;
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			left: 0.65rem;
+			padding: 0.3rem;
+			position: fixed;
+			right: 0.65rem;
+			z-index: 20;
 		}
 
 		.flashcard-actions button {
-			min-height: 3.7rem;
+			font-size: 0.68rem;
+			gap: 0.2rem;
+			letter-spacing: 0.04em;
+			line-height: 1.15;
+			min-height: 3.6rem;
+			padding: 0.35rem 0.15rem;
+		}
+
+		.flashcard-actions button .action-icon {
+			font-size: 0.9rem;
+			line-height: 1;
+			order: -1;
+		}
+
+		.action-label-full {
+			display: none;
+		}
+
+		.action-label-mobile {
+			display: inline;
 		}
 
 		.finish-actions {
@@ -965,12 +1091,17 @@ const { terms } = Astro.props;
 
 		.flashcard-totals {
 			align-items: center;
-			flex-direction: column;
-			gap: 0.35rem;
+			flex-direction: row;
+			font-size: 0.58rem;
+			gap: 0.65rem;
+			justify-content: space-between;
+			letter-spacing: 0.045em;
+			padding-inline: 0.15rem;
 		}
 
 		.flashcard-totals span + span::before {
-			content: none;
+			content: '·';
+			margin-inline-end: 0.65rem;
 		}
 	}
 
